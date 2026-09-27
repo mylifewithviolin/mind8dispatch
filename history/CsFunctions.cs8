@@ -1,0 +1,1242 @@
+﻿
+using System.Dynamic;
+
+public partial class Mind8Dispatcher
+{
+    private static readonly int maxCountCsFunctions = 1 + 0x0261;
+    /// <summary>C#の関数配列を準備する</summary>
+    /// <param name="csFunc">C#関数配列の参照</param>
+    private static void SetupCsFunctions(ref Action[] csFuncs){
+        csFuncs=new Action[maxCountCsFunctions];
+    /*--------------------- 実行  -----------------------------------*/
+        csFuncs[0x0010]=ZzEndExecute;//不完全要注意
+        csFuncs[0x0011]=Jikkou;//不完全要注意
+        csFuncs[0x0012]=Musyori;//
+        csFuncs[0x0013]=EmgcyExit;
+        csFuncs[0x0014]=ProcessOwari;
+    /*--------------------- スタックポインタのアクセス  --------------*/
+        csFuncs[0x0015]=StackKensa0;
+        csFuncs[0x0016]=StackReset;//
+        csFuncs[0x0017]=FinishDispatcher;
+        csFuncs[0x0018]=C_stack_data_no;
+    /*--------------------- $$RESERVE[nL]  --------------------------*/
+        csFuncs[0x0019]=ZzReserve1L;
+        csFuncs[0x001A]=ZzReserve2L;
+        csFuncs[0x001B]=ZzReserve3L;
+        csFuncs[0x001C]=ZzReserve4L;
+        csFuncs[0x001D]=ZzReserve5L;
+        csFuncs[0x001E]=ZzReserve6L; 
+        csFuncs[0x001F]=ZzReserve; 
+    /*--------------------- $$EXIT[nL]  -----------------------------*/
+        csFuncs[0x0020]=ZzExit1L;//
+        csFuncs[0x0021]=ZzExit2L;
+        csFuncs[0x0022]=ZzExit3L;
+        csFuncs[0x0023]=ZzExit4L;
+        csFuncs[0x0024]=ZzExit5L;
+        csFuncs[0x0025]=ZzExit6L;
+        csFuncs[0x0026]=ZzExit7L;
+        csFuncs[0x0027]=ZzExit;
+    /*--------------------- $$IFEXIT系  -----------------------------*/
+        csFuncs[0x0028]=ZzIfExit;
+        csFuncs[0x0029]=ZzIf0Exit;
+        csFuncs[0x002A]=ZzIf1Exit;
+        csFuncs[0x002B]=ZzNotIfExit;
+        csFuncs[0x002C]=ZzNotIf0Exit;
+        csFuncs[0x002D]=ZzNotIf1Exit;
+    /*--------------------- $$JMP  ----------------------------------*/
+        csFuncs[0x002E]=ZzJmpRelative; 
+        csFuncs[0x002F]=ZzJmpIndexed; //
+
+        csFuncs[0x0030]=ZzPointNull;
+        csFuncs[0x0031]=ZzPushNull;
+        csFuncs[0x0032]=ZzPushNull;//重複
+        csFuncs[0x0033]=ZzPushPointer;
+        csFuncs[0x0034]=ZzPushPointerPlusSize;
+        csFuncs[0x0035]=AddressWoEru;
+    /*---------------------  大域変数のセットアップ  ------------------*/
+        csFuncs[0x0036]=ZzPointVarAddr;//
+        csFuncs[0x0037]=ZzPointCodeAddr;
+    /*---------------------  大域集合のセットアップ  ------------------*/
+        csFuncs[0x0038]=ZzPushVarAddrPlusSize;
+        csFuncs[0x0039]=ZzPushMcodeAddrPlusSize;
+    /*---------------------  局所変数のセットアップ  ------------------*/
+        csFuncs[0x003A]=ZzPointLocalAddr0W;
+        csFuncs[0x003B]=ZzPointLocalAddr1W;
+        csFuncs[0x003C]=ZzPointLocalAddr2W;
+        csFuncs[0x003D]=ZzPointLocalAddr3W;
+        csFuncs[0x003E]=ZzPointLocalAddr4W; 
+        csFuncs[0x003F]=ZzPointLocalAddr5W; 
+        
+        csFuncs[0x0040]=ZzPointLocalAddr6W;
+        csFuncs[0x0041]=ZzPointLocalAddr7W;
+        csFuncs[0x0042]=ZzPointLocalAddr;
+    /*---------------------  局所集合のセットアップ  ------------------*/
+        csFuncs[0x0043]=ZzPushLocalAddrPlusSize;
+        csFuncs[0x0044]=ZzPushLocalAddrPlusSize;
+    /*---------------------  変数の間接読み出し  ----------------------*/
+        csFuncs[0x0045]=ZzPushBvar;
+        csFuncs[0x0046]=ZzPushWvar;
+        csFuncs[0x0047]=ZzPushDvar;
+        csFuncs[0x0048]=ZzPushLvar;
+        csFuncs[0x0049]=ZzPushQvar;
+        csFuncs[0x004A]=ZzPushSvar;
+        csFuncs[0x004B]=ZzPushJvar;
+    /*---------------------  変数の直接読み出し  ----------------------*/
+        csFuncs[0x004C]=ZzReadBvar;
+        csFuncs[0x004D]=ZzReadWvar;
+        csFuncs[0x004E]=ZzReadDvar;
+        csFuncs[0x004F]=ZzReadLvar; 
+        csFuncs[0x0050]=ZzReadQvar; 
+
+        csFuncs[0x0051]=ZzReadSvar;
+        csFuncs[0x0052]=ZzReadJvar;
+    /*---------------------  局所変数の直接読み出し  ---------------*/
+        csFuncs[0x0053]=ZzReadBvarLocal;
+        csFuncs[0x0054]=ZzReadWvarLocal;
+        csFuncs[0x0055]=ZzReadDvarLocal;
+        csFuncs[0x0056]=ZzReadLvarLocal;
+        csFuncs[0x0057]=ZzReadQvarLocal;
+        csFuncs[0x0058]=ZzReadSvarLocal;
+        csFuncs[0x0059]=ZzReadJvarLocal;
+    /*---------------------  変数の間接書き込み  ------------------*/
+        csFuncs[0x005A]=ZzPopBvar;
+        csFuncs[0x005B]=ZzPopWvar;
+        csFuncs[0x005C]=ZzPopDvar;
+        csFuncs[0x005D]=ZzPopLvar;
+        csFuncs[0x005E]=ZzPopQvar;
+        csFuncs[0x005F]=ZzPopSvar;
+
+        csFuncs[0x0060]=ZzPopMemory;
+        csFuncs[0x0061]=ZzPopMemoryWithResult;
+        csFuncs[0x0062]=ZzPopMemoryWithResult;
+    /*---------------------  変数の直接書き込み  --------------------*/
+        csFuncs[0x0063]=ZzWriteBvar;//
+        csFuncs[0x0064]=ZzWriteWvar;//
+        csFuncs[0x0065]=ZzWriteDvar;//
+        csFuncs[0x0066]=ZzWriteLvar;//
+        csFuncs[0x0067]=ZzWriteQvar;//
+        csFuncs[0x0068]=ZzWriteSvar;//
+    /*---------------------  局所変数の直接書き込み  ----------------*/
+        csFuncs[0x0069]=ZzWriteBvarLocal;
+        csFuncs[0x006A]=ZzWriteWvarLocal;
+        csFuncs[0x006B]=ZzWriteDvarLocal;
+        csFuncs[0x006C]=ZzWriteLvarLocal;
+        csFuncs[0x006D]=ZzWriteQvarLocal;
+        csFuncs[0x006E]=ZzWriteSvarLocal;
+    /*---------------------  変数のクリア  --------------------------*/
+        csFuncs[0x006F]=ZzClearBvar;//
+        csFuncs[0x0070]=ZzClearWvar;//
+        csFuncs[0x0071]=ZzClearDvar;//
+        csFuncs[0x0072]=ZzClearLvar;//
+        csFuncs[0x0073]=ZzClearFvar;
+        csFuncs[0x0074]=ZzClearSvar;//
+        csFuncs[0x0075]=ZzClearMemory;
+        csFuncs[0x0076]=ZzClearMemory;
+    /*--------------------- 変数を一つ増加  -------------------------*/
+        csFuncs[0x0077]=ZzIncBvar;
+        csFuncs[0x0078]=ZzIncWvar;
+        csFuncs[0x0079]=ZzIncDvar;
+        csFuncs[0x007A]=ZzIncLvar;
+    /*--------------------- 変数を一つ減少  -------------------------*/
+        csFuncs[0x007B]=ZzDecBvar;
+        csFuncs[0x007C]=ZzDecWvar;
+        csFuncs[0x007D]=ZzDecDvar;
+        csFuncs[0x007E]=ZzDecLvar;
+    /*--------------------- 変数をセット  ---------------------------*/
+        csFuncs[0x007F]=ZzSetBvar;//
+        csFuncs[0x0080]=ZzSetWvar;//
+        csFuncs[0x0081]=ZzSetDvar;//
+        csFuncs[0x0082]=ZzSetLvar;//
+
+        csFuncs[0x0083]=c_test_push_quad;
+        csFuncs[0x0084]=c_test_push_float;
+    /*--------------------- 変数を増加  -----------------------------*/
+        csFuncs[0x0085]=ZzAddBvar;
+        csFuncs[0x0086]=ZzAddWvar;
+        csFuncs[0x0087]=ZzAddDvar;
+        csFuncs[0x0088]=ZzAddLvar;
+        csFuncs[0x0089]=ZzAddFvar;
+    /*--------------------- 変数を減少  -----------------------------*/
+        csFuncs[0x008A]=ZzSubBvar;
+        csFuncs[0x008B]=ZzSubWvar;
+        csFuncs[0x008C]=ZzSubDvar;
+        csFuncs[0x008D]=ZzSubLvar;
+        csFuncs[0x008E]=ZzSubFvar;
+    /*--------------------- バイトロード～ダブルロード  ----------------*/
+        csFuncs[0x008F]=ByteLoad;
+        csFuncs[0x0090]=WordLoad;
+        csFuncs[0x0091]=DoubleLoad;
+    /*--------------------- バイトストア～ダブルストア  ----------------*/
+        csFuncs[0x0092]=ByteStore;
+        csFuncs[0x0093]=WordStore;
+        csFuncs[0x0094]=DoubleStore;  
+    /*--------------------- 数値定数  -------------------------------*/
+        csFuncs[0x0095]=Zz0;//
+        csFuncs[0x0096]=Zz1;//
+        csFuncs[0x0097]=Zz2;//
+        csFuncs[0x0098]=Zz3;//
+        csFuncs[0x0099]=Zz4;//
+        csFuncs[0x009A]=Zz5;//
+        csFuncs[0x009B]=Zz6;//
+        csFuncs[0x009C]=Zz7;//
+        csFuncs[0x009D]=Zz8;//
+        csFuncs[0x009E]=Zz9;//
+        csFuncs[0x009F]=Zz10;//
+
+        csFuncs[0x016E]=ZzClearXvar;//
+
+        csFuncs[0x0261]=CmcodeFullFilename;//
+    }
+
+
+    /*--------------------- 実行  -----------------------------------*/
+    private static void ZzEndExecute(){  /* ;WORD $$END_EXECUTE */
+            /* Mコード=0x0010 */
+        // DROP_R;				    /* 臨時のMコード域予約を解消 */
+        // McodePointer.w = (USHORT *)POP_R;   /* '実行'直前のMポインタ復帰 */
+
+        //#define  DROP_R             RstackPointer++
+        rtp.PopUl();
+        mp.ResetMcodeIndex((ushort)rtp.PopUl());
+    }
+    private static void Jikkou(){       /* ;WORD 実行 */
+            /* Mコード=0x0011 */
+        // USHORT  *rp;
+        // PUSH_R( McodePointer.u );	/* 現Ｍコードポインタを退避 */
+        // rp = (USHORT *)--RstackPointer; /* リターンスタックに2wordを確保 */
+        // McodePointer.w = rp;            /* その先頭から実行する仕掛け    */
+        // *rp = POP_W_OF_Q;       	/* 指定されたMcodeを1ワード生成 */
+        // *(rp+1) = 0x0010;               /* 後片付け処理のＭコードを記入 */
+        //           /*↑'zzEndExecute'のMコード */
+        rtp.PushUl(mp.GetMcodeIndex());
+        ushort rp=(ushort)rtp.GetCurrentStackIndex();
+        mp.ResetMcodeIndex(rp);
+        dtp.PopUl();
+        rtp.PushUl(dtp.PopUl());
+        rtp.PushUl(0x0010);
+    }
+    private static void Musyori(){      /* ;WORD 無処理 */
+            /* Mコード=0x0012 */
+            //無処理
+    }
+    private static void EmgcyExit(){    /* ;WORD ＄＄実行終り・0001 */
+            /* Mコード=0x0013 */
+        //exit_program( 1 );
+        string exceptionStr=string.Format("exit_program retCode={0}",1);
+        throw new Exception(exceptionStr);
+    }
+    private static void ProcessOwari(){ /* ;WORD プロセス終り０ */
+            /* Mコード=0x0014 */
+    	// LONG retCode;
+    	// retCode = POP_L_OF_Q;
+	    // exit_program( retCode );
+
+        // #define  POP_L_OF_Q           (DROP_F,POP_L)
+        dtp.PopUl();
+        int retCode =(int)dtp.PopUl();
+        string exceptionStr=string.Format("exit_program retCode={0}",retCode);
+        throw new Exception(exceptionStr);
+    }
+
+    /*--------------------- スタックポインタのアクセス  --------------*/
+    private static void StackKensa0(){/* ;WORD スタック検査０ */
+            /* Mコード=0x0015 */
+        // if ( DstackPointer == DataStackBase[RestartEnvCount] )
+        // {
+        //         /* OK */
+        //         PUSH_Q( 1, 0 );
+        // }
+        // else
+        // {
+        //         /* NG */
+        //         resetDataStackPointer();        /* in dispatch.c */
+        //         PUSH_Q( 0, 0 );
+        // }
+        if(dtp.GetCurrentStackIndex()==0){
+            dtp.PushUl(1);
+            dtp.PushUl(0);
+        }else{
+            dtp.ResetStackIndex(0);
+            dtp.PushUl(0);
+            dtp.PushUl(0);
+        }
+
+    }
+    private static void StackReset(){      /* ;WORD スタックリセット */
+            /* Mコード=0x0016 */
+        // resetDataStackPointer();                /* in dispatch.c */
+        // resetRetnStackPointer();                /* in dispatch.c */
+        // longjmp( RESTARTENV, 1 );       	/* ディスパッチャ強制再開始 */
+        dtp.ResetStackIndex(0);//DstackPointer = DataStackBase[RestartEnvCount];
+        rtp.ResetStackIndex(0);//RstackPointer = RetnStackBase;
+        string exceptionStr=string.Format("longjmp RESTARTENV={0}",1);
+        throw new Exception(exceptionStr);
+    }
+    private static void FinishDispatcher(){	/* ;WORD ディスパッチャ終了 */
+            /* Mコード=0x0017 */
+        //longjmp( RESTARTENV, 2 );       	/* ディスパッチャ強制再開始 */
+        string exceptionStr=string.Format("longjmp RESTARTENV={0}",2);
+        throw new Exception(exceptionStr);
+    }
+    private static void C_stack_data_no(){  /* ;WORD スタックデータ数2 */
+            /* Mコード=0x0018 */
+        //longjmp( RESTARTENV, 2 );	       /* ディスパッチャ強制再開始 */
+        string exceptionStr=string.Format("longjmp RESTARTENV={0}",2);
+        throw new Exception(exceptionStr);        
+    }
+
+    /*--------------------- $$RESERVE[nL]  --------------------------*/
+    private static void ZzReserve1L(){         /* ;WORD $$RESERVE_1L */
+             /* Mコード=0x0019 */
+        //RstackPointer -= 1;
+        rtp.MoveStackIndex(-1);
+    }
+    private static void ZzReserve2L(){    /* ;DUMMYWORD */
+             /* Mコード=0x001A */
+        //RstackPointer -= 2;
+        rtp.MoveStackIndex(-2);
+    }
+    private static void ZzReserve3L(){    /* ;DUMMYWORD */
+            /* Mコード=0x001B */
+        //RstackPointer -= 3;
+        rtp.MoveStackIndex(-3);
+    }
+    private static void ZzReserve4L(){    /* ;DUMMYWORD */
+            /* Mコード=0x001C */
+        //RstackPointer -= 4;
+        rtp.MoveStackIndex(-4);
+    }
+    private static void ZzReserve5L(){    /* ;DUMMYWORD */
+            /* Mコード=0x001D */       
+        //RstackPointer -= 5;
+        rtp.MoveStackIndex(-5);
+    }
+    private static void ZzReserve6L(){    /* ;DUMMYWORD */
+            /* Mコード=0x001E */
+        //RstackPointer -= 6;
+        rtp.MoveStackIndex(-6);     
+    }
+    private static void ZzReserve(){      /* ;WORD $$RESERVE */
+            /* Mコード=0x001F */     
+        //RstackPointer -= FETCH_MCODE;
+        rtp.MoveStackIndex(-1*mp.GetMCodeCurrentIndex());
+    }
+
+    /*--------------------- $$EXIT[nL]  -----------------------------*/
+    private static void ZzExit1L(){ /* ;WORD $$EXIT_1L */
+             /* Mコード=0x0020 */
+        //McodePointer.w = (USHORT *)POP_R;
+
+        //#define  POP_R              (*RstackPointer++)
+        mp.ResetMcodeIndex(rtp.PopUl());
+    }
+    private static void ZzExit2L(){   /* ;DUMMYWORD */
+            /* Mコード=0x0021 */
+        // RstackPointer += 2;
+        // McodePointer.w = (USHORT *)(*(RstackPointer-1));
+        rtp.MoveStackIndex(2);
+        rtp.MoveStackIndex(-1);
+        mp.ResetMcodeIndex(rtp.PopUs()); 
+    }
+    private static void ZzExit3L(){   /* ;DUMMYWORD */
+            /* Mコード=0x0022 */
+        // RstackPointer += 3;
+        // McodePointer.w = (USHORT *)(*(RstackPointer-1));
+        rtp.MoveStackIndex(3);
+        rtp.MoveStackIndex(-1);
+        mp.ResetMcodeIndex(rtp.PopUs()); 
+    }
+    private static void ZzExit4L(){   /* ;DUMMYWORD */
+            /* Mコード=0x0023 */
+        // RstackPointer += 4;
+        // McodePointer.w = (USHORT *)(*(RstackPointer-1));
+        rtp.MoveStackIndex(4);
+        rtp.MoveStackIndex(-1);
+        mp.ResetMcodeIndex(rtp.PopUs()); 
+    }
+    private static void ZzExit5L(){   /* ;DUMMYWORD */
+             /* Mコード=0x0024 */
+        // RstackPointer += 5;
+        // McodePointer.w = (USHORT *)(*(RstackPointer-1));
+        rtp.MoveStackIndex(5);
+        rtp.MoveStackIndex(-1);
+        mp.ResetMcodeIndex(rtp.PopUs()); 
+    }
+    private static void ZzExit6L(){   /* ;DUMMYWORD */
+            /* Mコード=0x0025 */
+        // RstackPointer += 6;
+        // McodePointer.w = (USHORT *)(*(RstackPointer-1));
+        rtp.MoveStackIndex(6);
+        rtp.MoveStackIndex(-1);
+        mp.ResetMcodeIndex(rtp.PopUs()); 
+    }
+    private static void ZzExit7L(){   /* ;DUMMYWORD */
+             /* Mコード=0x0026 */
+        // RstackPointer += 7;
+        // McodePointer.w = (USHORT *)(*(RstackPointer-1));
+        rtp.MoveStackIndex(7);
+        rtp.MoveStackIndex(-1);
+        mp.ResetMcodeIndex(rtp.PopUs()); 
+    }
+    private static void ZzExit(){
+             /* Mコード=0x0027 */
+        // RstackPointer += FETCH_MCODE;
+        // McodePointer.w = (USHORT *)(*(RstackPointer-1));
+        rtp.MoveStackIndex(mp.GetMCodeCurrentIndex());
+        rtp.MoveStackIndex(-1);
+        mp.ResetMcodeIndex(rtp.PopUs()); 
+    }
+
+    /*--------------------- $$IFEXIT系  -----------------------------*/
+    private static void ZzIfExit(){       /* ;WORD $$IFEXIT */
+            /* Mコード=0x0028 */
+        // if ( POP_L_OF_Q )
+        // {
+        //         zzExit();
+        // }
+        // else
+        // {
+        //         SKIP_MCODE_1WORD;
+        // }
+    }
+    private static void ZzIf0Exit(){  /* ;DUMMYWORD */
+            /* Mコード=0x0029 */
+        // if ( POP_L_OF_Q )
+        // {
+        //         PUSH_Q( 0, 0 );                 /* 00000000.00000000を積む */
+        //         zzExit();
+        // }
+        // else
+        // {
+        //         SKIP_MCODE_1WORD;
+        // }
+    }
+    private static void ZzIf1Exit(){  /* ;DUMMYWORD */
+            /* Mコード=0x002A */
+        // if ( POP_L_OF_Q )
+        // {
+        //         PUSH_Q( 1, 0 );                 /* 00000001.00000000を積む */
+        //         zzExit();
+        // }
+        // else
+        // {
+        //         SKIP_MCODE_1WORD;
+        // }
+    }
+    private static void ZzNotIfExit(){  /* ;DUMMYWORD */
+            /* Mコード=0x002B */
+        // if ( POP_L_OF_Q )
+        // {
+        //         SKIP_MCODE_1WORD;
+        // }
+        // else
+        // {
+        //         zzExit();
+        // }
+    }
+    private static void ZzNotIf0Exit(){  /* ;DUMMYWORD */
+            /* Mコード=0x002C */
+        // if ( POP_L_OF_Q )
+        // {
+        //         SKIP_MCODE_1WORD;
+        // }
+        // else
+        // {
+        //         PUSH_Q( 0, 0 );                 /* 00000000.00000000を積む */
+        //         zzExit();
+        // }
+    }
+    private static void ZzNotIf1Exit(){  /* ;DUMMYWORD */
+            /* Mコード=0x002D */
+        // if ( POP_L_OF_Q )
+        // {
+        //         SKIP_MCODE_1WORD;
+        // }
+        // else
+        // {
+        //         PUSH_Q( 1, 0 );                 /* 00000001.00000000を積む */
+        //         zzExit();
+        // }
+    }
+    
+    /*--------------------- $$JMP  ----------------------------------*/
+    private static void ZzJmpRelative(){    /* ;WORD $$JMP_RELATIVE */
+            /* Mコード=0x002E */
+        //SKIP_MCODE( READ_MCODE_SHORT );
+    }
+    private static void ZzJmpIndexed(){     /* ;WORD $$JMP_INDEXED */
+            /* Mコード=0x002F */
+        //SET_MCODE_POINTER_BY_WORDNO( READ_MCODE );
+        //#define  READ_MCODE	    (*McodePointer.w)
+        //McodePointer.b = (UCHAR *)(WordOffsetTable[wordNo])
+        mp.ResetMcodeIndex((uint)lp.GetSl(mp.GetMCodeCurrentIndex()));   
+    }
+    private static void ZzPointNull(){
+             /* Mコード=0x0030 */
+        //AccessPointer.w = NULL;
+        ap.SetUs(0);
+    }
+    private static void ZzPushNull(){   /* ;WORD  $$PUSH_NULL */
+                                        /* ;ALIAS $$NULL      */
+             /* Mコード=0x0031 */
+             /* Mコード=0x0032 */
+        //PUSH_S( NULL, 0 );
+        //#define  PUSH_S(addr,count)   PUSH_A(addr),PUSH_C(count)
+    }
+
+    private static void ZzPushPointer(){    /* ;WORD $$PUSH_POINTER */
+            /* Mコード=0x0033 */
+        //PUSH_Q( AccessPointer.u , 0 );
+    }
+    private static void ZzPushPointerPlusSize(){
+            /* Mコード=0x0034 */
+    }
+    private static void AddressWoEru(){          /* ;WORD アドレスを得る */
+            /* Mコード=0x0035 */
+    }
+
+    /*---------------------  大域変数のセットアップ  ------------------*/
+    private static void ZzPointVarAddr(){   /* ;WORD $$POINT_VARADDR */
+            /* Mコード=0x0036 */
+            //AccessPointer.b = DataBase + FETCH_MCODE_LONG;
+            //#define  FETCH_MCODE_LONG   (*McodePointer.l++)
+            ap.ResetDataIndex(mp.GetUl());
+    }
+    private static void ZzPointCodeAddr(){
+            /* Mコード=0x0036 */
+    }
+    /*---------------------  大域集合のセットアップ  ------------------*/
+    private static void ZzPushVarAddrPlusSize(){
+            /* Mコード=0x0037 */
+    }
+    private static void ZzPushMcodeAddrPlusSize(){
+            /* Mコード=0x0039 */
+    }
+    /*---------------------  局所変数のセットアップ  ------------------*/
+    private static void ZzPointLocalAddr0W(){ /* ;WORD $$POINT_LOCALADDR_0W */
+            /* Mコード=0x003A */
+        //AccessPointer.s = (SHORT *)RstackPointer;
+    }
+    private static void ZzPointLocalAddr1W(){ /* ;DUMMYWORD */
+            /* Mコード=0x003B */
+        //AccessPointer.s = (SHORT *)RstackPointer + 1;
+    }
+    private static void ZzPointLocalAddr2W(){ /* ;DUMMYWORD */
+            /* Mコード=0x003C */
+        //AccessPointer.s = (SHORT *)RstackPointer + 2;
+    }
+    private static void ZzPointLocalAddr3W(){ /* ;DUMMYWORD */
+            /* Mコード=0x003D */
+        //AccessPointer.s = (SHORT *)RstackPointer + 3;
+    }
+    private static void ZzPointLocalAddr4W(){ /* ;DUMMYWORD */
+            /* Mコード=0x003E */
+        //AccessPointer.s = (SHORT *)RstackPointer + 4;
+    }
+    private static void ZzPointLocalAddr5W(){ /* ;DUMMYWORD */
+            /* Mコード=0x003F */
+        //AccessPointer.s = (SHORT *)RstackPointer + 5;
+    }
+    private static void ZzPointLocalAddr6W(){ /* ;DUMMYWORD */
+            /* Mコード=0x0040 */
+        //AccessPointer.s = (SHORT *)RstackPointer + 6;
+    }
+    private static void ZzPointLocalAddr7W(){ /* ;DUMMYWORD */
+            /* Mコード=0x0041 */
+        //AccessPointer.s = (SHORT *)RstackPointer + 7;
+    }
+    private static void ZzPointLocalAddr(){  /* ;WORD $$POINT_LOCALADDR */
+            /* Mコード=0x0042 */
+        //AccessPointer.b = (UCHAR *)RstackPointer + FETCH_MCODE;
+    }
+    /*---------------------  局所集合のセットアップ  ------------------*/
+    private static void ZzPushLocalAddrPlusSize(){
+            /* Mコード=0x0043 */
+            /* Mコード=0x0044 */
+    }
+    /*---------------------  変数の間接読み出し  ----------------------*/
+    private static void ZzPushBvar(){   /* ;WORD $$PUSH_BVAR */
+            /* Mコード=0x0045 */
+        // PUSH_L( *AccessPointer.b );
+        // PUSH_F( 0 );
+    }
+    private static void ZzPushWvar(){   /* ;WORD $$PUSH_WVAR */
+            /* Mコード=0x0046 */
+        // PUSH_L( *AccessPointer.w );
+        // PUSH_F( 0 );
+    }
+    private static void ZzPushDvar(){   /* ;WORD $$PUSH_DVAR */
+            /* Mコード=0x0047 */
+        // PUSH_L( *AccessPointer.l );
+        // PUSH_F( 0 );
+    }
+    private static void ZzPushLvar(){   /* ;WORD $$PUSH_LVAR */
+            /* Mコード=0x0048 */
+        // PUSH_L( AccessPointer.l[0] );           /* push low  32bit  */
+        // PUSH_L( AccessPointer.l[1] );           /* push high 32bit */
+    }
+    private static void ZzPushQvar(){   /* ;WORD $$PUSH_QVAR */
+            /* Mコード=0x0049 */
+        // PUSH_L( AccessPointer.l[1] );           /* push high 32bit */
+        // PUSH_L( AccessPointer.l[0] );           /* push low  32bit  */
+    }
+    private static void ZzPushSvar(){   /* ;WORD $$PUSH_SVAR */
+            /* Mコード=0x004A */
+        // PUSH_A( AccessPointer.u[1] );           /* push address */
+        // PUSH_C( AccessPointer.u[0] );           /* push length  */
+    }
+    private static void ZzPushJvar(){
+            /* Mコード=0x004B */
+        // ULONG   length;
+        // ULONG   margin;
+        // length = *AccessPointer.u++;
+        // margin = *AccessPointer.u++;
+        // PUSH_A( AccessPointer.b + margin ); 	/* push address */
+        // PUSH_C( length );                       /* push length  */
+    }
+
+    /*---------------------  変数の直接読み出し  ----------------------*/
+    private static void ZzReadBvar(){
+            /* Mコード=0x004C */
+        // UCHAR  *varAddr;
+        // varAddr = DataBase + FETCH_MCODE_LONG;
+        // PUSH_L( *varAddr );
+        // PUSH_F( 0 );
+
+    }
+    private static void ZzReadWvar(){
+            /* Mコード=0x004D */
+        // USHORT *varAddr;
+        // varAddr = (USHORT *)(DataBase + FETCH_MCODE_LONG);
+        // PUSH_L( *varAddr );
+        // PUSH_F( 0 );
+    }
+    private static void ZzReadDvar(){
+            /* Mコード=0x004E */
+        // LONG   *varAddr;
+        // varAddr = (LONG *)(DataBase + FETCH_MCODE_LONG);
+        // PUSH_L( *varAddr );
+        // PUSH_F( 0 );
+    }
+    private static void ZzReadLvar(){
+            /* Mコード=0x004F */
+        // ULONG   *varAddr;
+        // varAddr = (LONG *)(DataBase + FETCH_MCODE_LONG);
+        // PUSH_L( varAddr[0] );                   /* push low  double */
+        // PUSH_L( varAddr[1] );                   /* push high double */
+    }
+    private static void ZzReadQvar(){
+            /* Mコード=0x0050 */
+        // ULONG   *varAddr;
+        // varAddr = (LONG *)(DataBase + FETCH_MCODE_LONG);
+        // PUSH_L( varAddr[1] );                   /* push high double */
+        // PUSH_L( varAddr[0] );                   /* push low  double */
+    }
+    private static void ZzReadSvar(){
+            /* Mコード=0x0051 */
+        // ULONG  *varAddr;
+        // varAddr = (ULONG *)(DataBase + FETCH_MCODE_LONG);
+        // PUSH_A( varAddr[1] );                   /* push address */
+        // PUSH_C( varAddr[0] );                   /* push length  */   
+    }
+    private static void ZzReadJvar(){
+            /* Mコード=0x0052 */
+        // ULONG  *varAddr;
+        // ULONG   length;
+        // ULONG   margin;
+        // varAddr = (ULONG *)(DataBase + FETCH_MCODE_LONG);
+        // length = *varAddr++;
+        // margin = *varAddr++;
+        // PUSH_A( (UCHAR *)varAddr + margin );    /* push address */
+        // PUSH_C( length );                       /* push length  */
+    }
+    /*---------------------  局所変数の直接読み出し  ---------------*/
+    private static void ZzReadBvarLocal(){
+            /* Mコード=0x0053 */
+        // UCHAR  *varAddr;
+        // varAddr = (UCHAR *)RstackPointer + FETCH_MCODE;
+        // PUSH_L( *varAddr );
+        // PUSH_F( 0 );
+    }
+    private static void ZzReadWvarLocal(){
+            /* Mコード=0x0054 */
+        // USHORT *varAddr;
+        // varAddr = (USHORT *)((UCHAR *)RstackPointer + FETCH_MCODE);
+        // PUSH_L( *varAddr );
+        // PUSH_F( 0 );    
+    }
+    private static void ZzReadDvarLocal(){
+            /* Mコード=0x0055 */
+        // ULONG 	*varAddr;
+        // varAddr = (ULONG *)((UCHAR *)RstackPointer + FETCH_MCODE);
+        // PUSH_L( *varAddr );
+        // PUSH_F( 0 );            
+    }
+    private static void ZzReadLvarLocal(){
+            /* Mコード=0x0056 */
+        // ULONG 	*varAddr;
+        // varAddr = (ULONG *)((UCHAR *)RstackPointer + FETCH_MCODE);
+        // PUSH_L( varAddr[0] );                   /* push low  double */
+        // PUSH_L( varAddr[1] );                   /* push high double */
+
+    }
+    private static void ZzReadQvarLocal(){
+            /* Mコード=0x0057 */
+        // ULONG 	*varAddr;
+        // varAddr = (ULONG *)((UCHAR *)RstackPointer + FETCH_MCODE);
+        // PUSH_L( varAddr[1] );                   /* push high double */
+        // PUSH_L( varAddr[0] );                   /* push low  double *
+    }
+    private static void ZzReadSvarLocal(){
+            /* Mコード=0x0058 */
+        // ULONG  	*varAddr;
+        // varAddr = (ULONG *)((UCHAR *)RstackPointer + FETCH_MCODE);
+        // PUSH_A( varAddr[1] );                   /* push address */
+        // PUSH_C( varAddr[0] );                   /* push length  */
+    }
+    private static void ZzReadJvarLocal(){
+            /* Mコード=0x0059 */
+        // ULONG  *varAddr;
+        // ULONG   length;
+        // ULONG   margin;
+        // varAddr = (ULONG *)((UCHAR *)RstackPointer + FETCH_MCODE);
+        // length = *varAddr++;
+        // margin = *varAddr++;
+        // PUSH_A( (UCHAR *)varAddr + margin );            /* push address */
+        // PUSH_C( length );                               /* push length  */
+
+    }
+    /*---------------------  変数の間接書き込み  ------------------*/
+    private static void ZzPopBvar(){
+            /* Mコード=0x005A */
+        //*AccessPointer.b = POP_B_OF_Q;
+    }
+    private static void ZzPopWvar(){
+            /* Mコード=0x005B */
+        //*AccessPointer.w = POP_W_OF_Q;
+    }
+    private static void ZzPopDvar(){
+            /* Mコード=0x005C */
+        //*AccessPointer.l = POP_L_OF_Q;
+    }
+    private static void ZzPopLvar(){
+            /* Mコード=0x005D */
+        // AccessPointer.l[1] = POP_L;	/* store high 32bit */
+        // AccessPointer.l[0] = POP_L;	/* store low  32bit */
+    }
+    private static void ZzPopQvar(){
+            /* Mコード=0x005E */
+        // AccessPointer.l[0] = POP_L;	/* store low  32bit */
+        // AccessPointer.l[1] = POP_L;	/* store high 32bit */
+    }
+    private static void ZzPopSvar(){
+            /* Mコード=0x005F */
+        // AccessPointer.u[0] = POP_C;
+        // AccessPointer.u[1] = (ULONG)POP_A;
+    }
+    private static void ZzPopMemory(){
+            /* Mコード=0x0060 */
+    }
+    private static void ZzPopMemoryWithResult(){
+            /* Mコード=0x0061 */
+            /* Mコード=0x0062 */
+    }
+
+    /*---------------------  変数の直接書き込み  --------------------*/
+    private static void ZzWriteBvar(){
+            /* Mコード=0x0063 */
+        //UCHAR  *varAddr;
+        //varAddr = DataBase + FETCH_MCODE_LONG;
+        //*varAddr = POP_B_OF_Q;
+
+        // #define  DROP_L               DstackPointer++
+        // #define  DROP_F               DROP_L
+        // #define  POP_L                (*DstackPointer++)
+        // #define  POP_F                POP_L
+        // #define  POP_B_OF_Q           (DROP_F,(UCHAR)POP_L)
+        ap.ResetDataIndex(mp.GetUl());
+        dtp.PopUl();//≒DROP Dataスタックから取り出して捨てる
+        ap.SetUb((byte)dtp.PopUl());
+    }
+    private static void ZzWriteWvar(){
+            /* Mコード=0x0064 */
+        // USHORT *varAddr;
+        //varAddr = (USHORT *)(DataBase + FETCH_MCODE_LONG);
+        //*varAddr = POP_W_OF_Q;
+
+        // #define  DROP_L               DstackPointer++
+        // #define  DROP_F               DROP_L
+        // #define  POP_L                (*DstackPointer++)
+        // #define  POP_F                POP_L
+        // #define  POP_W_OF_Q           (DROP_F,(USHORT)POP_L)
+        ap.ResetDataIndex(mp.GetUl());
+        dtp.PopUl();//≒DROP Dataスタックから取り出して捨てる
+        ap.SetUs((ushort)dtp.PopUl());
+    }
+    private static void ZzWriteDvar(){   /* ;WORD $$WRITE_DVAR */
+            /* Mコード=0x0065 */
+        // ULONG  *varAddr;
+        // varAddr = (ULONG *)(DataBase + FETCH_MCODE_LONG);
+        // *varAddr = POP_L_OF_Q;
+
+        // #define  POP_L_OF_Q           (DROP_F,POP_L)
+        ap.ResetDataIndex(mp.GetUl());
+        dtp.PopUl();//≒DROP Dataスタックから取り出して捨てる
+        ap.SetUl(dtp.PopUl());       
+    }
+    private static void ZzWriteLvar(){
+            /* Mコード=0x0066 */
+        //ULONG  *varAddr;
+        //varAddr = (ULONG *)(DataBase + FETCH_MCODE_LONG);
+        //varAddr[1] = POP_L;
+        //varAddr[0] = POP_L;
+
+        //#define  POP_L                (*DstackPointer++)
+        ap.ResetDataIndex(mp.GetUl());
+        uint var0=dtp.PopUl();//varAddr[0]用をデータスタックよりPOPしておく
+        ap.SetUl4Ms(dtp.PopUl(),var0);
+    }
+    private static void ZzWriteQvar(){
+            /* Mコード=0x0067 */
+        //ULONG  *varAddr;
+        //varAddr = (ULONG *)(DataBase + FETCH_MCODE_LONG);
+        //varAddr[0] = POP_L;
+        //varAddr[1] = POP_L;
+        
+        //#define  POP_L                (*DstackPointer++)
+        ap.ResetDataIndex(mp.GetUl());
+        ap.SetUl4Ms(dtp.PopUl(),dtp.PopUl());
+    }
+    private static void ZzWriteSvar(){
+            /* Mコード=0x0068 */
+        //ULONG  *varAddr;
+        //varAddr = (ULONG *)(DataBase + FETCH_MCODE_LONG);
+        //varAddr[0] = POP_C;
+        //varAddr[1] = (ULONG)POP_A;
+        
+        //#define  POP_L                (*DstackPointer++)
+        //#define  POP_U                ((ULONG)(*DstackPointer++))
+        //#define  POP_C                POP_U
+        //#define  POP_A                ((UCHAR *)(*DstackPointer++))
+        ap.ResetDataIndex(mp.GetUl());
+        ap.SetUl4Ms(dtp.PopUl(),dtp.PopUl());
+    }
+
+    /*---------------------  局所変数の直接書き込み  --------------------*/
+    private static void ZzWriteBvarLocal(){ /* ;WORD $$WRITE_BVAR_LOCAL */
+            /* Mコード=0x0069 */
+        // UCHAR  *varAddr;   
+        // varAddr = (UCHAR *)RstackPointer + FETCH_MCODE;
+        // *varAddr = POP_B_OF_Q;
+        
+        // #define  DROP_L               DstackPointer++
+        // #define  DROP_F               DROP_L
+        // #define  POP_L                (*DstackPointer++)
+        // #define  POP_F                POP_L
+        // #define  POP_B_OF_Q           (DROP_F,(UCHAR)POP_L)
+        rtp.ResetStackIndex(mp.GetMCodeCurrentIndex());//returnスタックのインデックスをMCode領域の値で移動
+        dtp.PopUl();//≒DROP Dataスタックから取り出して捨てる
+        rtp.PushUb((byte)dtp.PopUl());
+    }
+    private static void ZzWriteWvarLocal(){  /* ;WORD $$WRITE_WVAR_LOCAL */
+            /* Mコード=0x006A */
+        // USHORT *varAddr;
+        // varAddr = (USHORT *)((UCHAR *)RstackPointer + FETCH_MCODE);
+        // *varAddr = POP_W_OF_Q;
+
+        // #define  DROP_L               DstackPointer++
+        // #define  DROP_F               DROP_L
+        // #define  POP_L                (*DstackPointer++)
+        // #define  POP_F                POP_L
+        // #define  POP_W_OF_Q           (DROP_F,(USHORT)POP_L)
+        rtp.ResetStackIndex(mp.GetMCodeCurrentIndex());//returnスタックのインデックスをMCode領域の値で移動
+        dtp.PopUl();//≒DROP Dataスタックから取り出して捨てる
+        rtp.PushUs((ushort)dtp.PopUl());
+    }
+    private static void ZzWriteDvarLocal(){ /* ;WORD $$WRITE_DVAR_LOCAL */
+            /* Mコード=0x006B */
+        // LONG  	*varAddr;
+        // varAddr = (LONG *)((UCHAR *)RstackPointer + FETCH_MCODE);
+        // *varAddr = POP_L_OF_Q;
+
+        // #define  POP_L_OF_Q           (DROP_F,POP_L)
+        rtp.ResetStackIndex(mp.GetMCodeCurrentIndex());//returnスタックのインデックスをMCode領域の値で移動
+        dtp.PopUl();//≒DROP Dataスタックから取り出して捨てる
+        rtp.PushSl((int)dtp.PopUl());
+    }
+    private static void ZzWriteLvarLocal(){ /* ;WORD $$WRITE_LVAR_LOCAL */
+            /* Mコード=0x006C */
+        // ULONG  	*varAddr;
+        // varAddr = (ULONG *)((UCHAR *)RstackPointer + FETCH_MCODE);
+        // varAddr[1] = POP_L;
+        // varAddr[0] = POP_L;
+        rtp.ResetStackIndex(mp.GetMCodeCurrentIndex());//returnスタックのインデックスをMCode領域の値で移動
+        uint var0=dtp.PopUl();//varAddr[0]用をデータスタックよりPOPしておく
+        rtp.SetUl2var(dtp.PopUl(),var0);
+    }
+    private static void ZzWriteQvarLocal(){ /* ;WORD $$WRITE_QVAR_LOCAL */
+            /* Mコード=0x006D */
+        // ULONG  	*varAddr;
+        // varAddr = (ULONG *)((UCHAR *)RstackPointer + FETCH_MCODE);
+        // varAddr[0] = POP_L;
+        // varAddr[1] = POP_L;
+        rtp.ResetStackIndex(mp.GetMCodeCurrentIndex());//returnスタックのインデックスをMCode領域の値で移動
+        rtp.SetUl2var(dtp.PopUl(),dtp.PopUl());
+    }
+    private static void ZzWriteSvarLocal(){ /* ;WORD $$WRITE_SVAR_LOCAL */
+            /* Mコード=0x006E */
+        // ULONG  *varAddr;
+        // varAddr = (ULONG *)((UCHAR *)RstackPointer + FETCH_MCODE);
+        // varAddr[0] = POP_C;
+        // varAddr[1] = (ULONG)POP_A;
+
+        // #define  POP_A                ((UCHAR *)(*DstackPointer++))
+        // #define  POP_C                POP_U
+        rtp.ResetStackIndex(mp.GetMCodeCurrentIndex());//returnスタックのインデックスをMCode領域の値で移動
+        rtp.SetUl2var(dtp.PopUl(),(byte)dtp.PopUl());
+    }
+
+    /*---------------------  変数のクリア  --------------------*/
+    private static void ZzClearBvar(){ /* ;WORD $$CLR_BVAR */
+            /* Mコード=0x006F */
+        // *AccessPointer.b = 0;
+        ap.SetUb(0);//b=unsigned byte
+    }
+    private static void ZzClearWvar(){  /* ;WORD $$CLR_WVAR */
+            /* Mコード=0x0070 */
+        //*AccessPointer.w = 0;
+        ap.SetUs(0);//w=unsigned short
+    }
+    private static void ZzClearDvar(){  /* ;WORD $$CLR_DVAR */
+        /* Mコード=0x0071 */
+        //*AccessPointer.l = 0;
+        ap.SetSl(0);//l=signed int32
+    }
+    private static void ZzClearLvar(){  /* ;WORD $$CLR_LVAR */
+            /* Mコード=0x0072 */
+        //*AccessPointer.ll = 0;	/*注：64bit*/;
+        ap.SetUll(0);//ll=unsigned int64
+    }
+    private static void ZzClearFvar(){ /* ;WORD $$CLR_FVAR */
+            /* Mコード=0x0073 */
+        //*AccessPointer.f = 0.0f;	/*注：64bit*/;
+    }
+    private static void ZzClearSvar(){  /* ;WORD $$CLR_SVAR */
+            /* Mコード=0x0074 */
+        //AccessPointer.u[0] = 0;
+        //AccessPointer.u[1] = 0;
+        ap.SetUl4Ms(0,0);//ul=unsigned int32 Ms=mind string
+    }
+    private static void ZzClearMemory(){
+            /* Mコード=0x0075 */
+            /* Mコード=0x0076 */
+        // void   *address;
+        // size_t  length;
+        // length  = (size_t)POP_C;
+        // address = (void *)POP_A;
+        // memset( address, 0, length );
+    }
+
+    /*--------------------- 変数を一つ増加  -------------------------*/
+    /*** 注意:以下の4単語は定義順序を変えてはならない **/
+    private static void ZzIncBvar(){/* ;WORD $$INC_BVAR */
+            /* Mコード=0x0077 */
+        //(*AccessPointer.b)++
+        ap.SetUb((byte)(ap.GetUb() + 1));
+    }
+    private static void ZzIncWvar(){/* ;WORD $$INC_WVAR */
+            /* Mコード=0x0078 */
+        //(*AccessPointer.w)++;
+        ap.SetUs((ushort)(ap.GetUs() + 1));
+    }
+    private static void ZzIncDvar(){/* ;WORD $$INC_DVAR */
+            /* Mコード=0x0079 */
+        //(*AccessPointer.l)++;
+        ap.SetUl(ap.GetUl() + 1);
+    }
+    private static void ZzIncLvar(){/* ;WORD $$INC_LVAR */
+            /* Mコード=0x007A */
+        //(*AccessPointer.ll)++;
+        ap.SetUll(ap.GetUll() + 1);
+    }
+    /*--------------------- 変数を一つ減少  -------------------------*/
+    /*** 注意:以下の4単語は定義順序を変えてはならない **/
+    private static void ZzDecBvar(){   /* ;WORD $$DEC_BVAR */
+            /* Mコード=0x007B */
+        //(*AccessPointer.b)--;
+        ap.SetUb((byte)(ap.GetUb() - 1));
+    }
+    private static void ZzDecWvar(){   /* ;WORD $$DEC_WVAR */
+            /* Mコード=0x007C */
+        //(*AccessPointer.w)--;
+        ap.SetUs((ushort)(ap.GetUs() - 1));
+    }
+    private static void ZzDecDvar(){   /* ;WORD $$DEC_DVAR */
+            /* Mコード=0x007D */
+        //(*AccessPointer.l)--;
+        ap.SetUl(ap.GetUl() - 1);
+    }
+    private static void ZzDecLvar(){   /* ;WORD $$DEC_LVAR */
+            /* Mコード=0x007E */
+        //(*AccessPointer.ll)--;
+        ap.SetUll(ap.GetUll() - 1);
+    }
+
+    /*--------------------- 変数をセット  ---------------------------*/
+    private static void ZzSetBvar(){    /* ;WORD $$SET_BVAR */
+            /* Mコード=0x007F */
+        //*AccessPointer.b = 1;
+        ap.SetUb(1);
+    }
+    private static void ZzSetWvar(){    /* ;WORD $$SET_WVAR */
+            /* Mコード=0x0080 */
+        //*AccessPointer.w = 1;
+        //USHORT* w;      /* for unsigned word access */
+        ap.SetUs(1);
+    }
+    private static void ZzSetDvar(){    /* ;WORD $$SET_DVAR */
+            /* Mコード=0x0081 */
+        //*AccessPointer.l = 1;
+        ap.SetUl(1);
+    }
+    private static void ZzSetLvar(){   /* ;WORD $$SET_LVAR */
+            /* Mコード=0x0082 */
+        //*AccessPointer.ll = 1;
+        ap.SetUll(1);
+    }
+    private static void c_test_push_quad(){	    /* ;WORD c_test_push_quad */
+            /* Mコード=0x0083 */
+    }
+    private static void c_test_push_float(){    /* ;WORD c_test_push_float */
+            /* Mコード=0x0084 */
+    }
+    /*--------------------- 変数を増加  -----------------------------*/
+    private static void ZzAddBvar(){    /* ;WORD $$ADD_BVAR */
+            /* Mコード=0x0085 */
+        //*AccessPointer.b += POP_B_OF_Q;
+        // #define  POP_B_OF_Q           (DROP_F,(UCHAR)POP_L)
+        dtp.PopUl();//≒DROP Dataスタックから取り出して捨てる
+        ap.SetUb((byte)(ap.GetUb() + dtp.PopUl()));
+    }
+    private static void ZzAddWvar(){    /* ;WORD $$ADD_WVAR */
+            /* Mコード=0x0086 */
+        //*AccessPointer.w += POP_W_OF_Q;
+        // #define  POP_W_OF_Q           (DROP_F,(USHORT)POP_L)
+        dtp.PopUl();//≒DROP Dataスタックから取り出して捨てる
+        ap.SetUs((ushort)(ap.GetUs() + dtp.PopUl()));
+    }
+    private static void ZzAddDvar(){    /* ;WORD $$ADD_DVAR */
+            /* Mコード=0x0087 */
+        //*AccessPointer.l += POP_L_OF_Q;
+        // #define  POP_L_OF_Q           (DROP_F,POP_L)
+        dtp.PopUl();//≒DROP Dataスタックから取り出して捨てる
+        ap.SetUl(ap.GetUl() + dtp.PopUl());
+    }
+    private static void ZzAddLvar(){    /* ;WORD $$ADD_LVAR */
+            /* Mコード=0x0088 */
+        // word64 high32;
+        // ULONG  low32;
+        // word64 value64;
+        // typedef unsigned __int64       word64;
+        // high32 = POP_L;
+        // low32  = POP_L;
+        // value64 = (high32<<32 | low32);
+        /*	printf("$$ADD_LVARが呼ばれた AccessPointer=%08lx value64=%lld\n", AccessPointer, value64);*/
+        // *AccessPointer.ll += value64;
+        ulong high32 = dtp.PopUl();
+        uint low32   = dtp.PopUl();
+        ulong value64= high32<<32 | low32;
+        ap.SetUll(ap.GetUll() + value64);
+    }
+    private static void ZzAddFvar(){    /* ;WORD $$ADD_FVAR */
+            /* Mコード=0x0089 */
+    	// double	fval;
+        // fval = pop_float();
+        // *AccessPointer.f += fval;
+    }
+    /*--------------------- 変数を減少  -----------------------------*/
+    private static void ZzSubBvar(){   /* ;WORD $$SUB_BVAR */
+            /* Mコード=0x008A */
+        // *AccessPointer.b -= POP_B_OF_Q;
+        // #define  POP_B_OF_Q           (DROP_F,(UCHAR)POP_L)
+        dtp.PopUl();//≒DROP Dataスタックから取り出して捨てる
+        ap.SetUb((byte)(ap.GetUb() - dtp.PopUl()));
+    }
+    private static void ZzSubWvar(){   /* ;WORD $$SUB_WVAR */
+            /* Mコード=0x008B */
+        // *AccessPointer.w -= POP_W_OF_Q;
+        // #define  POP_W_OF_Q           (DROP_F,(USHORT)POP_L)
+        dtp.PopUl();//≒DROP Dataスタックから取り出して捨てる
+        ap.SetUs((ushort)(ap.GetUs() - dtp.PopUl()));
+    }
+    private static void ZzSubDvar(){   /* ;WORD $$SUB_DVAR */
+            /* Mコード=0x008C */
+        // *AccessPointer.l -= POP_L_OF_Q;
+        // #define  POP_L_OF_Q           (DROP_F,POP_L)
+        dtp.PopUl();//≒DROP Dataスタックから取り出して捨てる
+        ap.SetUl(ap.GetUl() - dtp.PopUl());
+    }
+    private static void ZzSubLvar(){   /* ;WORD $$SUB_LVAR */
+            /* Mコード=0x008D */
+        // word64 high32;
+        // ULONG	      low32;
+		// word64 value64;
+        // high32 = POP_L;
+        // low32  = POP_L;
+        // value64 = (high32<<32 | low32);
+        // *AccessPointer.ll -= value64;
+        ulong high32 = dtp.PopUl();
+        uint low32   = dtp.PopUl();
+        ulong value64= high32<<32 | low32;
+        ap.SetUll(ap.GetUll() - value64);
+    }
+    private static void ZzSubFvar(){   /* ;WORD $$SUB_FVAR */
+            /* Mコード=0x008E */
+    	// double	fval;
+	    // fval = pop_float();
+        // *AccessPointer.f -= fval;
+    }
+    
+    /*--------------------- バイトロード～ダブルロード  ----------------*/
+    private static void ByteLoad(){     /* ;WORD バイトロード .N */
+            /* Mコード=0x008F */
+        //WRITE_L_OF_Q( *READ_A_OF_S );	/*注:一旦変数に受けていたが廃止*/
+    }
+    private static void WordLoad(){     /* ;WORD ワードロード .N */
+            /* Mコード=0x0090 */
+        // USHORT  *varAddr;
+        // varAddr = (USHORT *)READ_A_OF_S;
+        // WRITE_L_OF_Q( *varAddr );
+    }
+    private static void DoubleLoad(){    /* ;WORD ダブルロード .N */
+            /* Mコード=0x0091 */
+        // ULONG  *varAddr;
+        // varAddr = (ULONG *)READ_A_OF_S;
+        // WRITE_L_OF_Q( *varAddr );
+    }
+    /*--------------------- バイトストア～ダブルストア  ----------------*/
+    private static void ByteStore(){     /* ;WORD バイトストア NN */
+            /* Mコード=0x0092 */
+        // UCHAR  *varAddr;
+        // varAddr = (UCHAR *)POP_U_OF_Q;
+        // *varAddr = POP_B_OF_Q;
+    }
+    private static void WordStore(){     /* ;WORD ワードストア NN */
+            /* Mコード=0x0093 */
+        // USHORT  *varAddr;
+        // varAddr = (USHORT *)POP_U_OF_Q;
+        // *varAddr = POP_W_OF_Q;
+
+    }
+    private static void DoubleStore(){  /* ;WORD ダブルストア NN */
+            /* Mコード=0x0094 */
+        // ULONG  	*varAddr;
+        // varAddr = (ULONG *)POP_L_OF_Q;
+        // *varAddr = POP_L_OF_Q;
+    }
+
+    /*--------------------- 数値定数  -------------------------------*/
+    private static void Zz0(){  /* ;WORD $$0 */
+            /* Mコード=0x0095 */
+        //PUSH_Q( 0, 0 );
+        // #define  PUSH_L(value)        *(--DstackPointer)=(LONG)(value)
+        // #define  PUSH_F(value)        PUSH_L(value)
+        // #define  PUSH_Q(i,f)          PUSH_L(i),PUSH_F(f)
+        dtp.PushUl(0);
+        dtp.PushUl(0);
+    }
+    private static void Zz1(){  /* ;DUMMYWORD */
+            /* Mコード=0x0096 */
+        //PUSH_Q( 1, 0 );
+        dtp.PushUl(1);
+        dtp.PushUl(0);
+    }
+    private static void Zz2(){  /* ;DUMMYWORD */
+            /* Mコード=0x0097 */
+        //PUSH_Q( 2, 0 );
+        dtp.PushUl(2);
+        dtp.PushUl(0);
+    }
+    private static void Zz3(){  /* ;DUMMYWORD */
+            /* Mコード=0x0098 */
+        //PUSH_Q( 3, 0 );
+        dtp.PushUl(3);
+        dtp.PushUl(0);
+    }
+    private static void Zz4(){  /* ;DUMMYWORD */
+            /* Mコード=0x0099 */
+        //PUSH_Q( 4, 0 );
+        dtp.PushUl(4);
+        dtp.PushUl(0);
+    }
+    private static void Zz5(){  /* ;DUMMYWORD */
+            /* Mコード=0x009A */
+        //PUSH_Q( 5, 0 );
+        dtp.PushUl(5);
+        dtp.PushUl(0);
+    }
+    private static void Zz6(){  /* ;DUMMYWORD */
+            /* Mコード=0x009B */
+        //PUSH_Q(6, 0 );
+        dtp.PushUl(6);
+        dtp.PushUl(0);
+    }
+    private static void Zz7(){  /* ;DUMMYWORD */
+            /* Mコード=0x009C */
+        //PUSH_Q( 7, 0 );
+        dtp.PushUl(7);
+        dtp.PushUl(0);
+    }
+    private static void Zz8(){  /* ;DUMMYWORD */
+            /* Mコード=0x009D */
+        //PUSH_Q( 8, 0 );
+        dtp.PushUl(8);
+        dtp.PushUl(0);
+    }
+    private static void Zz9(){  /* ;DUMMYWORD */
+            /* Mコード=0x009E */
+        //PUSH_Q( 9, 0 );
+        dtp.PushUl(9);
+        dtp.PushUl(0);
+    }
+    private static void Zz10(){  /* ;DUMMYWORD */
+            /* Mコード=0x009F */
+        //PUSH_Q( 10, 0 );
+        dtp.PushUl(10);
+        dtp.PushUl(0);
+    }
+    
+    // private static void DummyFunc0(){
+    // }
+    // private static void DummyFunc1(){
+    // }
+    // private static void DummyFunc2(){
+    // }
+    // private static void DummyFunc3(){
+    // }
+    // private static void DummyFunc4(){
+    // }
+
+    private static void ZzClearXvar(){		/* ;WORD $$CLR_XVAR */
+            /* Mコード=0x016E */
+	    /* ([AccessPointer(単純文字列実体)] → .) */
+	    //size_t varLength = (size_t)FETCH_MCODE_ULONG;
+    	/* クリアする */
+	    //memset( (void *)AccessPointer.b, SPACE, varLength );
+        byte SPACE =32;
+        uint varLength = mp.GetUl();
+        ap.SetUb4Msi(SPACE,varLength);
+    }
+
+    private static void CmcodeFullFilename(){		/* ;WORD c_mcodeFullFilename */
+            /* Mコード=0x0261 */
+        //PUSH_S( FullFilename, 0 );
+        //#define  PUSH_S(addr,count)   PUSH_A(addr),PUSH_C(count)
+        // #define  PUSH_L(value)        *(--DstackPointer)=(LONG)(value)
+        // #define  PUSH_U(value)        PUSH_L(value)
+        // #define  PUSH_A(addr)         PUSH_U(addr)
+        // #define  PUSH_C(count)        PUSH_U(count)
+        dtp.PushUl(0);//暫定
+        dtp.PushUl(0);
+    }
+}

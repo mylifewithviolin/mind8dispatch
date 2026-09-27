@@ -1,0 +1,16 @@
+..........
+asmword.src    2024-03-05 20:40.03  ..\libY\yoyakugoG  obj\asmword  
+  コンパイル ..\kernel\c_words.wrd   2024-04-10 21:43.54
+  コンパイル asmstart.src   2023-01-22 16:36.28
+  コンパイル asmequ.src     2023-01-22 16:36.28
+conslevel5.src   2024-09-23 14:27.39  obj\asmword  obj\conslevel5  -local
+  コンパイル ..\file\osdefine.src   2023-01-22 16:36.31
+  コンパイル ..\file\cswitch.src   2023-01-22 16:36.30
+  コンパイル ..\file\ckaridef.src   2023-01-22 16:36.30
+  コンパイル ..\file\cconvar.src   2023-01-22 16:36.29
+  コンパイル ..\file\cerrmsg.src   2023-01-22 16:36.29
+  コンパイル ..\file\cconv.src   2023-01-22 16:36.29
+  コンパイル ..\file\coutput.src   2023-01-22 16:36.30
+  コンパイル ..\file\cerror.src   2024-03-26 22:57.50
+  コンパイル ..\file\cmain.src   2023-01-22 16:36.30
+hellolevel5.src   2024-05-19 15:24.36  c:\developments\vscode\mind8\filelevel5\obj\conslevel5  

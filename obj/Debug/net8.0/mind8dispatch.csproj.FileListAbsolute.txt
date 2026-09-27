@@ -1,0 +1,14 @@
+C:\developments\vscode\mind8dispatch\bin\Debug\net8.0\mind8dispatch.exe
+C:\developments\vscode\mind8dispatch\bin\Debug\net8.0\mind8dispatch.deps.json
+C:\developments\vscode\mind8dispatch\bin\Debug\net8.0\mind8dispatch.runtimeconfig.json
+C:\developments\vscode\mind8dispatch\bin\Debug\net8.0\mind8dispatch.dll
+C:\developments\vscode\mind8dispatch\bin\Debug\net8.0\mind8dispatch.pdb
+C:\developments\vscode\mind8dispatch\obj\Debug\net8.0\mind8dispatch.GeneratedMSBuildEditorConfig.editorconfig
+C:\developments\vscode\mind8dispatch\obj\Debug\net8.0\mind8dispatch.AssemblyInfoInputs.cache
+C:\developments\vscode\mind8dispatch\obj\Debug\net8.0\mind8dispatch.AssemblyInfo.cs
+C:\developments\vscode\mind8dispatch\obj\Debug\net8.0\mind8dispatch.csproj.CoreCompileInputs.cache
+C:\developments\vscode\mind8dispatch\obj\Debug\net8.0\mind8dispatch.dll
+C:\developments\vscode\mind8dispatch\obj\Debug\net8.0\refint\mind8dispatch.dll
+C:\developments\vscode\mind8dispatch\obj\Debug\net8.0\mind8dispatch.pdb
+C:\developments\vscode\mind8dispatch\obj\Debug\net8.0\mind8dispatch.genruntimeconfig.cache
+C:\developments\vscode\mind8dispatch\obj\Debug\net8.0\ref\mind8dispatch.dll

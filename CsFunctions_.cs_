@@ -1,0 +1,8 @@
+namespace Mind8Kernel
+{
+    public partial class Dispatcher
+    {
+
+
+    }
+}

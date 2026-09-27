@@ -1,0 +1,24 @@
+..........
+asmword.src    2024-03-05 20:40.03  ..\libY\yoyakugoG  obj\asmword  
+  コンパイル ..\kernel\c_words.wrd   2024-04-10 21:43.54
+  コンパイル asmstart.src   2023-01-22 16:36.28
+  コンパイル asmequ.src     2023-01-22 16:36.28
+console.src    2023-01-22 16:36.30  obj\asmword  obj\console  -local
+  コンパイル osdefine.src   2023-01-22 16:36.31
+  コンパイル cswitch.src    2023-01-22 16:36.30
+  コンパイル ckaridef.src   2023-01-22 16:36.30
+  コンパイル cconvar.src    2023-01-22 16:36.29
+  コンパイル cerrmsg.src    2023-01-22 16:36.29
+  コンパイル cconv.src      2023-01-22 16:36.29
+  コンパイル cconvF.src     2023-01-22 16:36.29
+  コンパイル jisconv.src    2023-01-22 16:36.31
+  コンパイル coutput.src    2023-01-22 16:36.30
+  コンパイル cerror.src     2024-03-26 22:57.50
+  コンパイル cmain.src      2023-01-22 16:36.30
+  コンパイル cconvdate.src   2023-01-22 16:36.29
+  コンパイル cinput.src     2023-01-22 16:36.30
+  コンパイル cfraction.src   2023-01-22 16:36.30
+  コンパイル conscallback.src   2023-01-22 16:36.30
+  コンパイル ctimer.src     2023-01-22 16:36.30
+  コンパイル cregistry.src   2023-01-22 16:36.30
+hello.src      2024-04-18 20:49.28  c:\developments\vscode\mind8\file\obj\console  

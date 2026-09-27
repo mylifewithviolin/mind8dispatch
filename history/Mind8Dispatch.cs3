@@ -1,0 +1,694 @@
+﻿
+using System.Dynamic;
+
+public class Mind8Dispatcher
+{
+    
+    private static readonly int sizeOfMcodoInfo = 32;
+    private struct McodeInfoStruct	     /*-- 全体=32バイト --*/
+    {
+        public char minfoMark1;//1
+        public char minfoMark2;//2
+        public byte  minfoMark3;//3
+        public byte  minfoMark4;//4
+        public ushort minfoMainExist;//5-6
+        public ushort minfoLimitD;//7-8
+        public uint minfoMcodeSize;//9-12		
+        public uint minfoLoctableSize;	//13-16
+        public uint minfoDataSize;	//17-20
+        public byte  minfoRuntimeNo;//21
+        public char  minfoDummy21;//22
+        public ushort minfoSerialNo;//23-24
+        public uint  minfoDstackSize;//25-28
+        public uint minfoRstackSize;//29-32
+    };
+    
+    private class GeneralPointer{
+   
+        private ulong union;
+        public void SetUb(ulong b){    /* for unsigned byte access */
+            union =b;
+        }
+        public ulong GetUb(){    /* for unsigned byte access */
+           return union;
+        }
+        public void SetUw(ulong w){  /* for unsigned word access */
+        union =w;
+        }
+        public ulong GetUw(){  /* for unsigned word access */
+           return union;
+        } 
+        public void SetSs(ulong s){ /* for signed short access  */
+            union =s;
+        }
+        public ulong GetSs(){ /* for signed short access  */
+           return union;
+        } 
+        
+        public void SetSl(ulong l){ /* for signed long access   */
+            union =l;
+        }
+        public ulong GetSl(){/* for signed long access   */
+           return union;
+        } 
+        
+        public void SetUl(ulong u){ /* for unsigned long access */
+            union =u;
+        }
+        public ulong GetUl(){ /* for unsigned long access */
+           return union;
+        } 
+        public void SetSq(ulong q){ /* for quad word accrss     */
+            union =q;
+        }
+        public ulong GetSq(){ /* for quad word accrss     */
+           return union;
+        } 
+        public void SetSll(ulong ll){ /* for long long access */
+            union =ll;
+        }
+        public ulong GetSll(){ /* for long long access */
+           return union;
+        } 
+        public void SetSf(ulong f){ /* for fraction access      */
+            union =f;
+        }
+        public ulong GetSf(){ /* for fraction access      */
+           return union;
+        }       
+    }
+    private static readonly int maxCountCsFunctions = 256;
+
+    private static Stack<ulong> DataStack = new();
+    private static Stack<ulong> RetnStack = new();
+    private static GeneralPointer McodePointer =new();
+    private static GeneralPointer AccessPointer =new(); /* メモリアクセス用ポインタ */
+
+    /// <summary>メイン</summary>
+    /// <param name="args">引数</param>
+    static void Main(string[] args)
+    {
+        String mcodefilename="hello.mco";
+        McodeInfoStruct mcodeInfo =new();
+        byte[] McodeBase =[];//MCode領域
+        byte[] WordOffsetTable=[];//LOCテーブル
+        byte[] DataBase =[];//データ領域
+        /* ディスパッチャを準備する */
+        bool ret=SetupForDispatch(ref mcodeInfo,
+                    ref McodeBase,ref WordOffsetTable,ref DataBase,mcodefilename);
+        if(!ret){
+            return;
+        }
+        //resetDataStackPointer();	
+        //resetRetnStackPointer();
+        MonitorMcode(McodeBase);
+        DataStack = new();//DstackPointer = DataStackBase[RestartEnvCount];
+        RetnStack = new();//RstackPointer = RetnStackBase;
+        McodePointer =new();
+        //McodePointer.b = (UCHAR *)McodeBase + 0x70;	/* 0x70=実行開始地点 */
+        McodePointer.SetUb(0x70);
+        /* C#の関数を準備する */
+        Action[] csFuncs=[]; //C#の関数を格納する配列
+        /* C#の関数配列を準備する */
+        SetupCsFunctions(ref csFuncs);
+        /* ディスパッチャ開始 */
+        Dispatcher(ref mcodeInfo,
+                    ref McodeBase,ref WordOffsetTable,ref DataBase,
+                    ref csFuncs);
+
+    }
+
+    /// <summary>ディスパッチャ</summary>
+    /// <param name="McodeInfo">MCode情報構造体の参照</param>
+    /// <param name="McodeBase">MCode領域の参照</param>
+    /// <param name="WordOffsetTable">LOCテーブルの参照</param>
+    /// <param name="DataBase">データ領域の参照</param>
+    /// <param name="csFunc">C#関数配列の参照</param>
+    private static void Dispatcher(ref McodeInfoStruct McodeInfo,
+            ref byte[] McodeBase,ref byte[] WordOffsetTable,ref byte[] DataBase,
+            ref Action[] csFuncs){
+        
+        short   mcode;
+
+        int retcode=0;//setjmp( RESTARTENV );		/* ←ディスパッチャ再 */
+        if ( retcode != 2 )			/* 強制脱出の検査 */
+        {
+            for(;;)
+            {
+                mcode = (short)McodePointer.GetUw();
+                if ( (mcode & 0x8000)==0 )
+                {
+                    /* C#関数 */
+                    csFuncs[mcode]();
+                }
+                else
+                {
+                    /* Mind単語 */
+                    RetnStack.Push(McodePointer.GetUl());//現在のMCodeポインタをリターンスタックにプッシュする
+                    McodePointer.SetUb(WordOffsetTable[mcode & 0x7fff]);
+                }
+            }
+        }
+        return;
+    }
+
+    /// <summary>ディスパッチャを準備する</summary>
+    /// <param name="McodeInfo">MCode情報構造体の参照</param>
+    /// <param name="McodeBase">MCode領域の参照</param>
+    /// <param name="WordOffsetTable">LOCテーブルの参照</param>
+    /// <param name="DataBase">データ領域の参照</param>
+    /// <param name="mcodefilename">MCode中間コードファイル名</param>
+    private static bool SetupForDispatch(
+        ref McodeInfoStruct McodeInfo,
+        ref byte[] McodeBase,ref byte[] WordOffsetTable,ref byte[] DataBase,
+        String mcodefilename){
+
+        using FileStream fs = new(mcodefilename, FileMode.Open);
+        fs.Seek(0-sizeOfMcodoInfo, SeekOrigin.End);
+        byte[] mcodeInf = new byte[sizeOfMcodoInfo];
+        int ret=fs.Read(mcodeInf, 0, sizeOfMcodoInfo);
+        if(ret < sizeOfMcodoInfo){
+            Console.WriteLine("Can't read Mcode-info({0}).", ret);
+            return false;
+        }
+
+        SetMcodeInfo(ref McodeInfo,mcodeInf);
+        MonitorMcodeInfo(ref McodeInfo);
+        if ( McodeInfo.minfoMark1 != 'M' || McodeInfo.minfoMark2 != 'C' )
+        {
+            Console.WriteLine("Illegal Mcode mark" );
+            return false;
+        }
+       	if ( McodeInfo.minfoMainExist == 0 )
+        {
+            Console.WriteLine("kermain: MAIN is not defined" );
+            return false;
+        }
+        //その他のmcodeInfoチェック当面割愛
+        //checkNeedToBeSwapped();関連の処理は当面割愛
+        fs.Seek(0, SeekOrigin.Begin);//rewindMcodeFileと同等
+        //readMcode;
+        uint size = McodeInfo.minfoMcodeSize;
+        McodeBase = new byte[size];
+        ret=fs.Read(McodeBase, 0, (int)size);//符号無サイズ読み取り不足の可能性あり
+        if(ret<size){
+            Console.WriteLine("kermain: Can't read M-code({0})", ret);
+	       return false;
+        }
+
+        //readLoctable;
+        size = McodeInfo.minfoLoctableSize;
+        WordOffsetTable= new byte[size];
+        ret=fs.Read(WordOffsetTable, 0, (int)size);//符号無サイズ読み取り不足の可能性あり
+        if(ret<size){
+            Console.WriteLine("kermain: Can't read Loc-table({0})", ret);
+	       return false;
+        }
+        //adjustLoctable();
+        //McodeBaseはバイト配列なのでこの処理成立しない
+        // uint entryNo = McodeInfo.minfoLoctableSize / 4;
+    	// for(int index=0; index<entryNo; index++ )
+        // {
+        //     WordOffsetTable[index] += (uint)McodeBase;
+        // }
+        //reserveDataArea();
+        uint DataSize = McodeInfo.minfoDataSize;
+        DataBase= new byte[DataSize];//データ領域をByte配列で確保
+        //reserveStackArea();
+       	/* スタックサイズの確定 */
+        //ushort DataStackSize = (ushort)McodeInfo.minfoDstackSize;
+        //ushort RetnStackSize = (ushort)McodeInfo.minfoRstackSize;
+        //C#のStack<T>で実装
+        return true;
+    }
+
+    /// <summary>バイト配列からMCode情報構造体をセットする</summary>
+    /// <param name="McodeInfo">MCode情報構造体の参照</param>
+    /// <param name="mcodeInf">MCode情報構造体相当のバイト配列</param>
+     private static void SetMcodeInfo(ref McodeInfoStruct McodeInfo,byte[] mcodeInf){
+        McodeInfo.minfoMark1= (char)mcodeInf[0];//1
+        McodeInfo.minfoMark2= (char)mcodeInf[1];//2
+        McodeInfo.minfoMark3= mcodeInf[2];//3
+        McodeInfo.minfoMark4= mcodeInf[3];//4
+        byte[] int16Byte = new byte[2];
+        int i=0;
+        for(i=0;i<2;i++)int16Byte[i]=mcodeInf[i+4];
+        McodeInfo.minfoMainExist= BitConverter.ToUInt16(int16Byte, 0);//5-6
+        for(i=0;i<2;i++)int16Byte[i]=mcodeInf[i+6];
+        McodeInfo.minfoLimitD= BitConverter.ToUInt16(int16Byte, 0);//7-8
+        byte[] int32Byte = new byte[4];
+        for(i=0;i<4;i++)int32Byte[i]=mcodeInf[i+8];
+        McodeInfo.minfoMcodeSize= BitConverter.ToUInt32(int32Byte, 0);//9-12
+        for(i=0;i<4;i++)int32Byte[i]=mcodeInf[i+12];
+        McodeInfo.minfoLoctableSize= BitConverter.ToUInt32(int32Byte, 0);	//13-16
+        for(i=0;i<4;i++)int32Byte[i]=mcodeInf[i+16];
+        McodeInfo.minfoDataSize= BitConverter.ToUInt32(int32Byte, 0);	//17-20
+        McodeInfo.minfoRuntimeNo= mcodeInf[20];//21
+        McodeInfo.minfoDummy21= (char)mcodeInf[21];//22
+        for(i=0;i<2;i++)int16Byte[i]=mcodeInf[i+22];
+        McodeInfo.minfoSerialNo= BitConverter.ToUInt16(int16Byte, 0);//23-24
+        for(i=0;i<4;i++)int32Byte[i]=mcodeInf[i+24];
+        McodeInfo.minfoDstackSize= BitConverter.ToUInt32(int32Byte, 0);//25-28
+        for(i=0;i<4;i++)int32Byte[i]=mcodeInf[i+28];
+        McodeInfo.minfoRstackSize= BitConverter.ToUInt32(int32Byte, 0);//29-32
+     }
+    /// <summary>MCode情報構造体をモニタする</summary>
+    /// <param name="McodeInfo">MCode情報構造体の参照</param>
+     private static void MonitorMcodeInfo(ref McodeInfoStruct McodeInfo){
+        Console.WriteLine("McodeInfo.minfoMark1({0}).",McodeInfo.minfoMark1);
+        Console.WriteLine("McodeInfo.minfoMark2({0}).",McodeInfo.minfoMark2);
+        Console.WriteLine("McodeInfo.minfoMark3({0}).",McodeInfo.minfoMark3);
+        Console.WriteLine("McodeInfo.minfoMark4({0}).",McodeInfo.minfoMark4);
+        Console.WriteLine("McodeInfo.minfoLoctableSize({0}).",McodeInfo.minfoLoctableSize);
+        Console.WriteLine("McodeInfo.minfoMainExist({0}).",McodeInfo.minfoMainExist);
+        Console.WriteLine("McodeInfo.minfoMcodeSize({0}).",McodeInfo.minfoMcodeSize);
+        Console.WriteLine("McodeInfo.minfoRuntimeNo({0}).",McodeInfo.minfoRuntimeNo);
+        Console.WriteLine("McodeInfo.minfoSerialNo({0}).",McodeInfo.minfoSerialNo);
+        Console.WriteLine("McodeInfo.minfoDstackSize({0}).",McodeInfo.minfoDstackSize);
+        Console.WriteLine("McodeInfo.minfoRstackSize({0}).",McodeInfo.minfoRstackSize);
+     }
+     private static void MonitorMcode(byte[] McodeBase){
+        for(int i=112;i<186;i++){//最初の116バイト
+            if(i%2==0){
+                byte[] int16Byte = new byte[2];
+                for(int j=0;j<2;j++)int16Byte[j]=McodeBase[i+j];
+                ushort mcode =BitConverter.ToUInt16(int16Byte, 0);
+                Console.Write(mcode.ToString("X4"));
+                Console.WriteLine(" {0}",mcode);
+            }
+        }
+     }
+    /// <summary>C#の関数配列を準備する</summary>
+    /// <param name="csFunc">C#関数配列の参照</param>
+    private static void SetupCsFunctions(ref Action[] csFuncs){
+        csFuncs=new Action[maxCountCsFunctions];
+        csFuncs[0x0010]=ZzEndExecute;
+        csFuncs[0x0011]=Jikkou;
+        csFuncs[0x0012]=Musyori;
+        csFuncs[0x0013]=EmgcyExit;
+        csFuncs[0x0014]=ProcessOwari;
+        csFuncs[0x0015]=StackKensa0;
+        csFuncs[0x0016]=StackReset;
+        csFuncs[0x0017]=FinishDispatcher;
+        csFuncs[0x0018]=C_stack_data_no;
+        csFuncs[0x0019]=ZzReserve1L;
+        csFuncs[0x001A]=ZzReserve2L;
+        csFuncs[0x001B]=ZzReserve3L;
+        csFuncs[0x001C]=ZzReserve4L;
+        csFuncs[0x001D]=ZzReserve5L;
+        csFuncs[0x001E]=ZzReserve6L; 
+        csFuncs[0x001F]=ZzReserve; 
+
+        csFuncs[0x0020]=ZzExit1L;
+        csFuncs[0x0021]=ZzExit2L;
+        csFuncs[0x0022]=ZzExit3L;
+        csFuncs[0x0023]=ZzExit4L;
+        csFuncs[0x0024]=ZzExit5L;
+        csFuncs[0x0025]=ZzExit6L;
+        csFuncs[0x0026]=ZzExit7L;
+        csFuncs[0x0027]=ZzExit;
+        csFuncs[0x0028]=ZzIfExit;
+        csFuncs[0x0029]=ZzIf0Exit;
+        csFuncs[0x002A]=ZzIf1Exit;
+        csFuncs[0x002B]=ZzJmpRelative;
+        csFuncs[0x002C]=Musyori;
+        csFuncs[0x002D]=EmgcyExit;
+        csFuncs[0x002E]=ProcessOwari; 
+        csFuncs[0x002F]=ProcessOwari; 
+
+        csFuncs[0x0030]=ZzEndExecute;
+        csFuncs[0x0031]=Jikkou;
+        csFuncs[0x0032]=Musyori;
+        csFuncs[0x0033]=EmgcyExit;
+        csFuncs[0x0034]=ProcessOwari;
+        csFuncs[0x0035]=ZzEndExecute;
+        csFuncs[0x0036]=Jikkou;
+        csFuncs[0x0037]=Musyori;
+        csFuncs[0x0038]=EmgcyExit;
+        csFuncs[0x0039]=ProcessOwari;
+        csFuncs[0x003A]=ZzEndExecute;
+        csFuncs[0x003B]=Jikkou;
+        csFuncs[0x003C]=Musyori;
+        csFuncs[0x003D]=EmgcyExit;
+        csFuncs[0x003E]=ProcessOwari; 
+        csFuncs[0x003F]=ProcessOwari; 
+        
+        csFuncs[0x0040]=ZzEndExecute;
+        csFuncs[0x0041]=Jikkou;
+        csFuncs[0x0042]=Musyori;
+        csFuncs[0x0043]=EmgcyExit;
+        csFuncs[0x0044]=ProcessOwari;
+        csFuncs[0x0045]=ZzEndExecute;
+        csFuncs[0x0046]=Jikkou;
+        csFuncs[0x0047]=Musyori;
+        csFuncs[0x0048]=EmgcyExit;
+        csFuncs[0x0049]=ProcessOwari;
+        csFuncs[0x004A]=ZzEndExecute;
+        csFuncs[0x004B]=Jikkou;
+        csFuncs[0x004C]=Musyori;
+        csFuncs[0x004D]=EmgcyExit;
+        csFuncs[0x004E]=ProcessOwari; 
+        csFuncs[0x004F]=ProcessOwari; 
+
+        csFuncs[0x0050]=ZzEndExecute;
+
+        csFuncs[0x0060]=ZzEndExecute;
+
+        csFuncs[0x0070]=ZzClearWvar;
+    }
+    private static void ZzEndExecute(){  /* ;WORD $$END_EXECUTE */
+            /* Mコード=0x0010 */
+    }
+    private static void Jikkou(){       /* ;WORD 実行 */
+            /* Mコード=0x0011 */
+    }
+    private static void Musyori(){      /* ;WORD 無処理 */
+            /* Mコード=0x0012 */
+    }
+    private static void EmgcyExit(){
+            /* Mコード=0x0013 */
+    }
+    private static void ProcessOwari(){
+            /* Mコード=0x0014 */
+    }
+    private static void StackKensa0(){
+            /* Mコード=0x0015 */
+    }
+    private static void StackReset(){
+            /* Mコード=0x0016 */
+        // resetDataStackPointer();                /* in dispatch.c */
+        // resetRetnStackPointer();                /* in dispatch.c */
+        // longjmp( RESTARTENV, 1 );       	/* ディスパッチャ強制再開始 */
+        DataStack = new();//DstackPointer = DataStackBase[RestartEnvCount];
+        RetnStack = new();//RstackPointer = RetnStackBase;;
+    }
+    private static void FinishDispatcher(){
+            /* Mコード=0x0017 */
+        //longjmp( RESTARTENV, 2 );       	/* ディスパッチャ強制再開始 */
+    }
+    private static void C_stack_data_no(){
+            /* Mコード=0x0018 */
+    }
+    private static void ZzReserve1L(){
+             /* Mコード=0x0019 */
+    }
+    private static void ZzReserve2L(){
+             /* Mコード=0x001A */
+    }
+    private static void ZzReserve3L(){
+            /* Mコード=0x001B */
+    }
+    private static void ZzReserve4L(){
+            /* Mコード=0x001C */
+    }
+    private static void ZzReserve5L(){
+            /* Mコード=0x001D */       
+    }
+    private static void ZzReserve6L(){
+            /* Mコード=0x001E */     
+    }
+    private static void ZzReserve(){
+            /* Mコード=0x001F */     
+    }
+    private static void ZzExit1L(){
+             /* Mコード=0x0020 */
+    }
+    private static void ZzExit2L(){
+    }
+    private static void ZzExit3L(){
+    }
+    private static void ZzExit4L(){
+    }
+    private static void ZzExit5L(){
+             /* Mコード=0x0024 */
+    }
+    private static void ZzExit6L(){
+    }
+    private static void ZzExit7L(){
+    }
+    private static void ZzExit(){
+    }
+    private static void ZzIfExit(){
+    }
+    private static void ZzIf0Exit(){
+    }
+    private static void ZzIf1Exit(){
+             /* Mコード=0x002A */
+    }
+    private static void ZzNotIfExit(){
+    }
+    private static void ZzNotIf0Exit(){
+    }
+    private static void ZzNotIf1Exit(){
+    }
+    private static void ZzJmpRelative(){
+             /* Mコード=0x002E */
+    }
+    private static void ZzJmpIndexed(){
+             /* Mコード=0x002F */
+
+        /*-[Mcode生成]-----------------*/
+        /*   +0(W): wordNo             */     /* ←単語番号 */
+        /*-----------------------------*/
+        //SET_MCODE_POINTER_BY_WORDNO( READ_MCODE );
+        //#define  READ_MCODE	    (*McodePointer.w)
+        //McodePointer.b = (UCHAR *)(WordOffsetTable[wordNo])
+
+    }
+    private static void ZzPointNull(){
+             /* Mコード=0x0030 */
+    }
+    private static void ZzPushNull(){
+             /* Mコード=0x0031 */
+    }
+    private static void ZzPushPointer(){
+    }
+    private static void ZzPushPointerPlusSize(){
+    }
+    private static void addressWoEru(){
+    }
+    private static void ZzPointVarAddr(){
+    }
+    private static void ZzPointCodeAddr(){
+    }
+    private static void ZzPushVarAddrPlusSize(){
+    }
+    private static void ZzPushMcodeAddrPlusSize(){
+            /* Mコード=0x0039 */
+    }
+    private static void ZzPointLocalAddr0W(){
+    }
+    private static void ZzPointLocalAddr1W(){
+    }
+    private static void ZzPointLocalAddr2W(){
+    }
+    private static void ZzPointLocalAddr3W(){
+    }
+    private static void ZzPointLocalAddr4W(){
+    }
+    private static void ZzPointLocalAddr5W(){
+    }
+    private static void ZzPointLocalAddr6W(){
+            /* Mコード=0x0040 */
+
+    }
+    private static void ZzPointLocalAddr7W(){
+    }
+    private static void ZzPointLocalAddr(){
+    }
+    private static void ZzPushLocalAddrPlusSize(){
+            /* Mコード=0x0043 */
+    }
+    private static void ZzPushBvar(){
+    }
+    private static void ZzPushWvar(){
+    }
+    private static void ZzPushDvar(){
+    }
+    private static void ZzPushLvar(){
+    }
+    private static void ZzPushQvar(){
+    }
+    private static void ZzPushSvar(){
+    }
+    private static void ZzPushJvar(){
+    }
+    private static void ZzReadBvar(){
+    }
+    private static void ZzReadWvar(){
+    }
+    private static void ZzReadDvar(){
+    }
+    private static void ZzReadLvar(){
+    }
+    private static void ZzReadQvar(){
+    }
+    private static void ZzReadSvar(){
+    }
+    private static void ZzReadJvar(){
+            /* Mコード=0x0050 */
+    }
+    private static void ZzReadBvarLocal(){
+    }
+    private static void ZzReadWvarLocal(){
+    }
+    private static void ZzReadDvarLocal(){
+    }
+    private static void ZzReadLvarLocal(){
+    }
+    private static void ZzReadQvarLocal(){
+    }
+    private static void ZzReadSvarLocal(){
+    }
+    private static void ZzReadJvarLocal(){
+    }
+    private static void ZzPopBvar(){
+    }
+    private static void ZzPopWvar(){
+    }
+    private static void ZzPopDvar(){
+    }
+    private static void ZzPopLvar(){
+    }
+    private static void ZzPopQvar(){
+    }
+    private static void ZzPopSvar(){
+    }
+    private static void ZzPopMemory(){
+    }
+    private static void ZzPopMemoryWithResult(){
+    }
+    private static void ZzWriteBvar(){
+            /* Mコード=0x0060 */
+    }
+    private static void ZzWriteWvar(){
+    }
+    private static void ZzWriteDvar(){
+    }
+    private static void ZzWriteLvar(){
+    }
+    private static void ZzWriteQvar(){
+    }
+    private static void ZzWriteSvar(){
+    }
+    private static void ZzWriteBvarLocal(){
+    }
+    private static void ZzWriteWvarLocal(){
+    }
+    private static void ZzWriteDvarLocal(){
+    }
+    private static void ZzWriteLvarLocal(){
+    }
+    private static void ZzWriteQvarLocal(){
+    }
+    private static void ZzWriteSvarLocal(){
+    }
+    private static void ZzClearBvar(){
+    }
+    private static void ZzClearWvar(){  /* ;WORD $$CLR_WVAR */
+            /* Mコード=0x0070 */
+            AccessPointer.SetUw(0);
+    }
+    private static void ZzClearDvar(){
+    }
+    private static void ZzClearLvar(){
+    }
+    private static void ZzClearFvar(){
+    }
+    private static void ZzClearSvar(){
+    }
+    private static void ZzClearMemory(){
+    }
+    private static void ZzIncBvar(){
+    }
+    private static void ZzIncWvar(){
+    }
+    private static void ZzIncDvar(){
+    }
+    private static void ZzIncLvar(){
+    }
+    private static void ZzDecBvar(){
+    }
+    private static void ZzDecWvar(){
+    }
+    private static void ZzDecDvar(){
+    }
+    private static void ZzDecLvar(){
+    }
+    private static void ZzSetBvar(){
+    }
+    private static void ZzSetWvar(){
+    }
+    private static void ZzSetDvar(){
+    }
+    private static void ZzSetLvar(){
+    }
+    private static void c_test_push_quad(){
+    }
+    private static void c_test_push_float(){
+    }
+    private static void ZzAddBvar(){
+    }
+    private static void ZzAddWvar(){
+    }
+    private static void ZzAddDvar(){
+    }
+    private static void ZzAddLvar(){
+    }
+    private static void ZzAddFvar(){
+    }
+    private static void ZzSubBvar(){
+    }
+    private static void ZzSubWvar(){
+    }
+    private static void ZzSubDvar(){
+    }
+    private static void ZzSubLvar(){
+    }
+    private static void ZzSubFvar(){
+    }
+    private static void byteLoad(){
+    }
+    private static void wordLoad(){
+    }
+    private static void doubleLoad(){
+    }
+    private static void byteStore(){
+    }
+    private static void wordStore(){
+    }
+    private static void doubleStore(){
+    }
+    private static void Zz0(){
+    }
+    private static void Zz1(){
+    }
+    private static void Zz2(){
+    }
+    private static void Zz3(){
+    }
+    private static void Zz4(){
+    }
+    private static void Zz5(){
+    }
+    private static void Zz6(){
+    }
+    private static void Zz7(){
+    }
+    private static void Zz8(){
+    }
+    private static void Zz9(){
+    }
+    private static void Zz10(){
+    }
+    private static void DummyFunc0(){
+    }
+    private static void DummyFunc1(){
+    }
+    private static void DummyFunc2(){
+    }
+    private static void DummyFunc3(){
+    }
+    private static void DummyFunc4(){
+    }
+}

@@ -1,0 +1,93 @@
+﻿
+    public class Program
+{
+    private struct McodeInfoStruct	     /*-- 全体=32バイト --*/
+    {
+        public char minfoMark1;//1
+        public char minfoMark2;//2
+        public byte  minfoMark3;//3
+        public byte  minfoMark4;//4
+        public ushort minfoMainExist;//5-6
+        public ushort minfoLimitD;//7-8
+        public uint minfoMcodeSize;//9-12		
+        public uint minfoLoctableSize;	//13-16
+        public uint minfoDataSize;	//17-20
+        public byte  minfoRuntimeNo;//21
+        public char  minfoDummy21;//22
+        public ushort minfoSerialNo;//23-24
+        public uint  minfoDstackSize;//25-28
+        public uint minfoRstackSize;//29-32
+    };
+    private static int sizeOfMcodoInfo = 32;
+
+
+    /// <summary>メイン</summary>
+    /// <param name="args">引数</param>
+    static void Main(string[] args)
+    {
+        McodeInfoStruct mcodeInfo =new();
+        using FileStream fs = new("hello.mco", FileMode.Open);
+        fs.Seek(0-sizeOfMcodoInfo, SeekOrigin.End);
+        byte[] mcodeInf = new byte[sizeOfMcodoInfo];
+        int ret=fs.Read(mcodeInf, 0, sizeOfMcodoInfo);
+        if(ret<32){
+            Console.WriteLine("Can't read Mcode-info({0}).", ret);
+            return;
+        }
+        SetMcodeInfo(ref mcodeInfo,mcodeInf);
+        MonitorMcodeInfo(ref mcodeInfo);
+
+        fs.Seek(0, SeekOrigin.Begin);
+        byte[] mcode = new byte[4];
+
+        while (fs.Read(mcode, 0, 4) > 0)
+        {
+            Console.WriteLine(BitConverter.ToString(mcode));
+        }
+    }
+    /// <summary>バイト配列からMCode情報構造体をセットする</summary>
+    /// <param name="McodeInfo">MCode情報構造体の参照</param>
+    /// <param name="mcodeInf">MCode情報構造体相当のバイト配列</param>
+     private static void SetMcodeInfo(ref McodeInfoStruct McodeInfo,byte[] mcodeInf){
+        McodeInfo.minfoMark1= (char)mcodeInf[0];//1
+        McodeInfo.minfoMark2= (char)mcodeInf[1];//2
+        McodeInfo.minfoMark3= mcodeInf[2];//3
+        McodeInfo.minfoMark4= mcodeInf[3];//4
+        byte[] int16Byte = new byte[2];
+        int i=0;
+        for(i=0;i<2;i++)int16Byte[i]=mcodeInf[i+4];
+        McodeInfo.minfoMainExist= BitConverter.ToUInt16(int16Byte, 0);//5-6
+        for(i=0;i<2;i++)int16Byte[i]=mcodeInf[i+6];
+        McodeInfo.minfoLimitD= BitConverter.ToUInt16(int16Byte, 0);//7-8
+        byte[] int32Byte = new byte[4];
+        for(i=0;i<4;i++)int32Byte[i]=mcodeInf[i+8];
+        McodeInfo.minfoMcodeSize= BitConverter.ToUInt32(int32Byte, 0);//9-12
+        for(i=0;i<4;i++)int32Byte[i]=mcodeInf[i+12];
+        McodeInfo.minfoLoctableSize= BitConverter.ToUInt32(int32Byte, 0);	//13-16
+        for(i=0;i<4;i++)int32Byte[i]=mcodeInf[i+16];
+        McodeInfo.minfoDataSize= BitConverter.ToUInt32(int32Byte, 0);	//17-20
+        McodeInfo.minfoRuntimeNo= mcodeInf[20];//21
+        McodeInfo.minfoDummy21= (char)mcodeInf[21];//22
+        for(i=0;i<2;i++)int16Byte[i]=mcodeInf[i+22];
+        McodeInfo.minfoSerialNo= BitConverter.ToUInt16(int16Byte, 0);//23-24
+        for(i=0;i<4;i++)int32Byte[i]=mcodeInf[i+24];
+        McodeInfo.minfoDstackSize= BitConverter.ToUInt32(int32Byte, 0);//25-28
+        for(i=0;i<4;i++)int32Byte[i]=mcodeInf[i+28];
+        McodeInfo.minfoRstackSize= BitConverter.ToUInt32(int32Byte, 0);//29-32
+     }
+    /// <summary>MCode情報構造体をモニタする</summary>
+    /// <param name="McodeInfo">MCode情報構造体の参照</param>
+     private static void MonitorMcodeInfo(ref McodeInfoStruct McodeInfo){
+        Console.WriteLine("McodeInfo.minfoMark1({0}).",McodeInfo.minfoMark1);
+        Console.WriteLine("McodeInfo.minfoMark2({0}).",McodeInfo.minfoMark2);
+        Console.WriteLine("McodeInfo.minfoMark3({0}).",McodeInfo.minfoMark3);
+        Console.WriteLine("McodeInfo.minfoMark4({0}).",McodeInfo.minfoMark4);
+        Console.WriteLine("McodeInfo.minfoLoctableSize({0}).",McodeInfo.minfoLoctableSize);
+        Console.WriteLine("McodeInfo.minfoMainExist({0}).",McodeInfo.minfoMainExist);
+        Console.WriteLine("McodeInfo.minfoMcodeSize({0}).",McodeInfo.minfoMcodeSize);
+        Console.WriteLine("McodeInfo.minfoRuntimeNo({0}).",McodeInfo.minfoRuntimeNo);
+        Console.WriteLine("McodeInfo.minfoSerialNo({0}).",McodeInfo.minfoSerialNo);
+        Console.WriteLine("McodeInfo.minfoDstackSize({0}).",McodeInfo.minfoDstackSize);
+        Console.WriteLine("McodeInfo.minfoRstackSize({0}).",McodeInfo.minfoRstackSize);
+     }
+}
