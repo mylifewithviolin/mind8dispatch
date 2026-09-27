@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("mind8dispatch")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+17761e28e782c8df526b6a483d66d74726e58d24")]
 [assembly: System.Reflection.AssemblyProductAttribute("mind8dispatch")]
 [assembly: System.Reflection.AssemblyTitleAttribute("mind8dispatch")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

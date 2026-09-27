@@ -111,7 +111,7 @@ namespace Mind8Kernel
             csFuncs[0x005F]=ZzPopSvar;
 
             csFuncs[0x0060]=ZzPopMemory;
-            csFuncs[0x0061]=ZzPopMemoryWithResult;
+            csFuncs[0x0061]=ZzPopMemory;
             csFuncs[0x0062]=ZzPopMemoryWithResult;
         /*---------------------  変数の直接書き込み  --------------------*/
             csFuncs[0x0063]=ZzWriteBvar;//
