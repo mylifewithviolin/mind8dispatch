@@ -1,4 +1,4 @@
-﻿using System.Dynamic;
+﻿using System.Buffers.Binary;
 
 namespace Mind8Kernel
 {
@@ -7,7 +7,11 @@ namespace Mind8Kernel
     public partial class Dispatcher
     {
         
-        private readonly int sizeOfMcodoInfo = 32;
+        private const int McodeInfoSize = 32;
+        private const byte BigEndianMcodeBit = 0x20;
+        private const int MajorVersion = 8;
+        private const byte RuntimeNumber = 10;
+        private const ushort SerialNumber = 42;
         
         /// <summary>MCode情報構造体</summary>
         private struct McodeInfoStruct	     /*-- 全体=32バイト --*/
@@ -158,94 +162,211 @@ namespace Mind8Kernel
             ref McodeInfoStruct McodeInfo,
             String mcodefilename){
 
-            using FileStream fs = new(mcodefilename, FileMode.Open);
-            fs.Seek(0-sizeOfMcodoInfo, SeekOrigin.End);
-            byte[] mcodeInf = new byte[sizeOfMcodoInfo];
-            int ret=fs.Read(mcodeInf, 0, sizeOfMcodoInfo);
-            if(ret < sizeOfMcodoInfo){
-                Console.WriteLine("Can't read Mcode-info({0}).", ret);
-                return false;
+            try
+            {
+                string resolvedFilename = ResolveMcodeFilename(mcodefilename);
+                using FileStream fs = new(resolvedFilename, FileMode.Open, FileAccess.Read, FileShare.Read);
+                if (fs.Length < McodeInfoSize)
+                {
+                    return Fail("M-code file is shorter than its information table.");
+                }
+
+                fs.Position = fs.Length - McodeInfoSize;
+                byte[] mcodeInfoBytes = new byte[McodeInfoSize];
+                fs.ReadExactly(mcodeInfoBytes);
+
+                bool fileIsBigEndian = (mcodeInfoBytes[2] & BigEndianMcodeBit) != 0;
+                bool hostIsBigEndian = !BitConverter.IsLittleEndian;
+                bool needsByteSwap = fileIsBigEndian != hostIsBigEndian;
+                SetMcodeInfo(ref McodeInfo, mcodeInfoBytes, fileIsBigEndian);
+
+                if (!ValidateMcodeInfo(McodeInfo))
+                {
+                    return false;
+                }
+
+                ulong payloadSize = (ulong)(fs.Length - McodeInfoSize);
+                ulong mcodeEnd = McodeInfo.minfoMcodeSize;
+                ulong locTableEnd = mcodeEnd + McodeInfo.minfoLoctableSize;
+                if (locTableEnd > payloadSize)
+                {
+                    return Fail("M-code and LOC table sizes exceed the file payload.");
+                }
+
+                McodeBase = new byte[checked((int)McodeInfo.minfoMcodeSize)];
+                WordOffsetTable = new byte[checked((int)McodeInfo.minfoLoctableSize)];
+                fs.Position = 0;
+                fs.ReadExactly(McodeBase);
+                fs.ReadExactly(WordOffsetTable);
+
+                if (needsByteSwap)
+                {
+                    if ((McodeInfo.minfoMcodeSize & 7) != 0)
+                    {
+                        return Fail("M-code size is not aligned for its endian information table.");
+                    }
+
+                    int endianInfoSize = checked((int)(McodeInfo.minfoMcodeSize / 8));
+                    if (locTableEnd + (uint)endianInfoSize > payloadSize)
+                    {
+                        return Fail("M-code endian information table is truncated.");
+                    }
+
+                    byte[] endianInfo = new byte[endianInfoSize];
+                    fs.Position = checked((long)locTableEnd);
+                    fs.ReadExactly(endianInfo);
+                    if (!SwapMcode(McodeBase, endianInfo))
+                    {
+                        return false;
+                    }
+                    SwapLocTable(WordOffsetTable);
+                }
+
+                return true;
+            }
+            catch (Exception exception) when (exception is IOException
+                or UnauthorizedAccessException
+                or ArgumentException
+                or NotSupportedException
+                or OverflowException)
+            {
+                return Fail(exception.Message);
+            }
+        }
+
+        private static string ResolveMcodeFilename(string filename)
+        {
+            if (string.IsNullOrWhiteSpace(filename))
+            {
+                throw new ArgumentException("M-code filename is empty.", nameof(filename));
             }
 
-            SetMcodeInfo(ref McodeInfo,mcodeInf);
-            //MonitorMcodeInfo(ref McodeInfo);
-            if ( McodeInfo.minfoMark1 != 'M' || McodeInfo.minfoMark2 != 'C' )
+            return string.Equals(Path.GetExtension(filename), ".mco", StringComparison.OrdinalIgnoreCase)
+                ? filename
+                : filename + ".mco";
+        }
+
+        private static bool ValidateMcodeInfo(McodeInfoStruct McodeInfo)
+        {
+            if (McodeInfo.minfoMark1 != 'M' || McodeInfo.minfoMark2 != 'C')
             {
-                Console.WriteLine("Illegal Mcode mark" );
-                return false;
+                return Fail("Illegal M-code mark.");
             }
-            if ( McodeInfo.minfoMainExist == 0 )
+            if ((McodeInfo.minfoMark4 >> 4) != MajorVersion)
             {
-                Console.WriteLine("kermain: MAIN is not defined" );
-                return false;
+                return Fail("M-code version does not match this runtime.");
             }
-            //その他のmcodeInfoチェック当面割愛
-            //checkNeedToBeSwapped();関連の処理は当面割愛
-            fs.Seek(0, SeekOrigin.Begin);//rewindMcodeFileと同等
-            //readMcode;
-            uint size = McodeInfo.minfoMcodeSize;
-            McodeBase = new byte[size];
-            ret=fs.Read(McodeBase, 0, (int)size);//符号無サイズ読み取り不足の可能性あり
-            if(ret<size){
-                Console.WriteLine("kermain: Can't read M-code({0})", ret);
-            return false;
+            if (McodeInfo.minfoRuntimeNo != RuntimeNumber)
+            {
+                return Fail("M-code runtime number does not match this runtime.");
+            }
+            if (McodeInfo.minfoSerialNo != SerialNumber)
+            {
+                return Fail("M-code serial number does not match this runtime.");
+            }
+            if (McodeInfo.minfoMainExist == 0)
+            {
+                return Fail("MAIN is not defined.");
+            }
+            if (McodeInfo.minfoMcodeSize < 0x72 || (McodeInfo.minfoMcodeSize & 1) != 0)
+            {
+                return Fail("M-code size is invalid.");
+            }
+            if (McodeInfo.minfoLoctableSize == 0 || (McodeInfo.minfoLoctableSize & 3) != 0)
+            {
+                return Fail("LOC table size is invalid.");
+            }
+            if (McodeInfo.minfoDataSize > int.MaxValue)
+            {
+                return Fail("Data area size exceeds the supported limit.");
+            }
+            if (McodeInfo.minfoDstackSize == 0 || McodeInfo.minfoDstackSize > ushort.MaxValue
+                || (McodeInfo.minfoDstackSize & 3) != 0)
+            {
+                return Fail("Data stack size is invalid for this runtime.");
+            }
+            if (McodeInfo.minfoRstackSize == 0 || McodeInfo.minfoRstackSize > ushort.MaxValue
+                || (McodeInfo.minfoRstackSize & 3) != 0)
+            {
+                return Fail("Return stack size is invalid for this runtime.");
             }
 
-            //readLoctable;
-            size = McodeInfo.minfoLoctableSize;
-            WordOffsetTable= new byte[size];
-            ret=fs.Read(WordOffsetTable, 0, (int)size);//符号無サイズ読み取り不足の可能性あり
-            if(ret<size){
-                Console.WriteLine("kermain: Can't read Loc-table({0})", ret);
-            return false;
-            }
-            //adjustLoctable();
-            //McodeBaseはバイト配列なのでこの処理成立しない
-            // uint entryNo = McodeInfo.minfoLoctableSize / 4;
-            // for(int index=0; index<entryNo; index++ )
-            // {
-            //     WordOffsetTable[index] += (uint)McodeBase;
-            // }
-            //reserveDataArea();
-            //reserveStackArea();
-            /* スタックサイズの確定 */
-            //ushort DataStackSize = (ushort)McodeInfo.minfoDstackSize;
-            //ushort RetnStackSize = (ushort)McodeInfo.minfoRstackSize;
-            //StackPointerで実装
-            
             return true;
+        }
+
+        private static bool SwapMcode(byte[] mcode, byte[] endianInfo)
+        {
+            int wordIndex = 0;
+            int pendingLongOffset = -1;
+            foreach (byte infoByte in endianInfo)
+            {
+                for (int wordInGroup = 0; wordInGroup < 4; wordInGroup++, wordIndex++)
+                {
+                    int code = (infoByte >> (6 - wordInGroup * 2)) & 0x03;
+                    int byteOffset = wordIndex * 2;
+                    if (pendingLongOffset >= 0)
+                    {
+                        Array.Reverse(mcode, pendingLongOffset, 4);
+                        pendingLongOffset = -1;
+                    }
+                    else if (code == 1)
+                    {
+                        Array.Reverse(mcode, byteOffset, 2);
+                    }
+                    else if (code == 2)
+                    {
+                        pendingLongOffset = byteOffset;
+                    }
+                }
+            }
+
+            if (pendingLongOffset >= 0)
+            {
+                return Fail("M-code endian information ends in the middle of a 32-bit value.");
+            }
+            return true;
+        }
+
+        private static void SwapLocTable(byte[] locTable)
+        {
+            for (int offset = 0; offset < locTable.Length; offset += 4)
+            {
+                Array.Reverse(locTable, offset, 4);
+            }
+        }
+
+        private static bool Fail(string message)
+        {
+            Console.Error.WriteLine($"M-code load error: {message}");
+            return false;
         }
 
         /// <summary>バイト配列からMCode情報構造体をセットする</summary>
         /// <param name="McodeInfo">MCode情報構造体の参照</param>
         /// <param name="mcodeInf">MCode情報構造体相当のバイト配列</param>
-        private void SetMcodeInfo(ref McodeInfoStruct McodeInfo,byte[] mcodeInf){
+        private void SetMcodeInfo(ref McodeInfoStruct McodeInfo, byte[] mcodeInf, bool bigEndian){
             McodeInfo.minfoMark1= (char)mcodeInf[0];//1
             McodeInfo.minfoMark2= (char)mcodeInf[1];//2
             McodeInfo.minfoMark3= mcodeInf[2];//3
             McodeInfo.minfoMark4= mcodeInf[3];//4
-            byte[] int16Byte = new byte[2];
-            int i=0;
-            for(i=0;i<2;i++)int16Byte[i]=mcodeInf[i+4];
-            McodeInfo.minfoMainExist= BitConverter.ToUInt16(int16Byte, 0);//5-6
-            for(i=0;i<2;i++)int16Byte[i]=mcodeInf[i+6];
-            McodeInfo.minfoLimitD= BitConverter.ToUInt16(int16Byte, 0);//7-8
-            byte[] int32Byte = new byte[4];
-            for(i=0;i<4;i++)int32Byte[i]=mcodeInf[i+8];
-            McodeInfo.minfoMcodeSize= BitConverter.ToUInt32(int32Byte, 0);//9-12
-            for(i=0;i<4;i++)int32Byte[i]=mcodeInf[i+12];
-            McodeInfo.minfoLoctableSize= BitConverter.ToUInt32(int32Byte, 0);	//13-16
-            for(i=0;i<4;i++)int32Byte[i]=mcodeInf[i+16];
-            McodeInfo.minfoDataSize= BitConverter.ToUInt32(int32Byte, 0);	//17-20
+            ReadOnlySpan<byte> info = mcodeInf;
+            McodeInfo.minfoMainExist= ReadUInt16(info, 4, bigEndian);//5-6
+            McodeInfo.minfoLimitD= ReadUInt16(info, 6, bigEndian);//7-8
+            McodeInfo.minfoMcodeSize= ReadUInt32(info, 8, bigEndian);//9-12
+            McodeInfo.minfoLoctableSize= ReadUInt32(info, 12, bigEndian);//13-16
+            McodeInfo.minfoDataSize= ReadUInt32(info, 16, bigEndian);//17-20
             McodeInfo.minfoRuntimeNo= mcodeInf[20];//21
             McodeInfo.minfoDummy21= (char)mcodeInf[21];//22
-            for(i=0;i<2;i++)int16Byte[i]=mcodeInf[i+22];
-            McodeInfo.minfoSerialNo= BitConverter.ToUInt16(int16Byte, 0);//23-24
-            for(i=0;i<4;i++)int32Byte[i]=mcodeInf[i+24];
-            McodeInfo.minfoDstackSize= BitConverter.ToUInt32(int32Byte, 0);//25-28
-            for(i=0;i<4;i++)int32Byte[i]=mcodeInf[i+28];
-            McodeInfo.minfoRstackSize= BitConverter.ToUInt32(int32Byte, 0);//29-32
+            McodeInfo.minfoSerialNo= ReadUInt16(info, 22, bigEndian);//23-24
+            McodeInfo.minfoDstackSize= ReadUInt32(info, 24, bigEndian);//25-28
+            McodeInfo.minfoRstackSize= ReadUInt32(info, 28, bigEndian);//29-32
         }
+
+        private static ushort ReadUInt16(ReadOnlySpan<byte> source, int offset, bool bigEndian) =>
+            bigEndian ? BinaryPrimitives.ReadUInt16BigEndian(source.Slice(offset, 2)) : BinaryPrimitives.ReadUInt16LittleEndian(source.Slice(offset, 2));
+
+        private static uint ReadUInt32(ReadOnlySpan<byte> source, int offset, bool bigEndian) =>
+            bigEndian ? BinaryPrimitives.ReadUInt32BigEndian(source.Slice(offset, 4)) : BinaryPrimitives.ReadUInt32LittleEndian(source.Slice(offset, 4));
         /// <summary>MCode情報構造体をモニタする</summary>
         /// <param name="McodeInfo">MCode情報構造体の参照</param>
         private void MonitorMcodeInfo(ref McodeInfoStruct McodeInfo){

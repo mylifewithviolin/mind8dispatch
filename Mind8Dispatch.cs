@@ -9,7 +9,7 @@ namespace Mind8Kernel
         /// <param name="args">引数</param>
         static int Main(string[] args)
         {
-            string mcodefilename="hellolevel7.mco";
+            string mcodefilename=args.Length > 0 ? args[0] : "hellolevel7.mco";
             Dispatcher dispatcher =new();
             return dispatcher.Main(mcodefilename);
     

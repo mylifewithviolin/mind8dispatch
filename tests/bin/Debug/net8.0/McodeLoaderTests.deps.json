@@ -1,0 +1,36 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v8.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v8.0": {
+      "McodeLoaderTests/1.0.0": {
+        "dependencies": {
+          "mind8dispatch": "1.0.0"
+        },
+        "runtime": {
+          "McodeLoaderTests.dll": {}
+        }
+      },
+      "mind8dispatch/1.0.0": {
+        "runtime": {
+          "mind8dispatch.dll": {}
+        }
+      }
+    }
+  },
+  "libraries": {
+    "McodeLoaderTests/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "mind8dispatch/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

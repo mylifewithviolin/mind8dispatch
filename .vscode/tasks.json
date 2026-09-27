@@ -36,6 +36,17 @@
                 "${workspaceFolder}/mind8dispatch.csproj"
             ],
             "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "test MCO loader",
+            "command": "dotnet",
+            "type": "process",
+            "args": [
+                "run",
+                "--project",
+                "${workspaceFolder}/tests/McodeLoaderTests.csproj"
+            ],
+            "problemMatcher": "$msCompile"
         }
     ]
 }
