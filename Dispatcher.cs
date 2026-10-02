@@ -106,17 +106,15 @@ namespace Mind8Kernel
             
             ushort   mcode;
 
-            int retcode=0;//setjmp( RESTARTENV );		/* ←ディスパッチャ再 */
-            if ( retcode != 2 )			/* 強制脱出の検査 */
+            while (true)
             {
                 try{
                     int i=0;
                     for(;;)
                     {
                         mcode = mp.FetchMcode();
-                        Console.Write("{0,4:d} {1,4:X4} {2,6:d} {3,6:d}",++i,mcode,mcode,mp.GetMcodeIndex());
-                        //Console.WriteLine(" {0,6:d} {1,8:d} {2,8:d} {3,8:d} {4,8:d} {5,8:d} {6,8:d} {7,6:d} {8,8:d} {9,8:d}",dtp.GetCurrentStackPointer(),dtp.GetUl(),
-                        Console.WriteLine(" {0,6:d} {1,8:d} {2,8:d} {3,6:d} {4,8:d} {5,8:d}",dtp.GetCurrentStackPointer(),dtp.GetUl(),
+                        Console.Error.Write("{0,4:d} {1,4:X4} {2,6:d} {3,6:d}",++i,mcode,mcode,mp.GetMcodeIndex());
+                        Console.Error.WriteLine(" {0,6:d} {1,8:d} {2,8:d} {3,6:d} {4,8:d} {5,8:d}",dtp.GetCurrentStackPointer(),dtp.GetUl(),
                                                     dtp.GetUlOffset(1),
                                                     // dtp.GetUlOffset(2),
                                                     // dtp.GetUlOffset(3),
@@ -146,13 +144,15 @@ namespace Mind8Kernel
                         }
                     }
                 }catch(LongJmp ljmp){
-                    retcode=ljmp.retCode;
-                    //状態復帰
+                    if (ljmp.retCode == 2)
+                    {
+                        return 0;
+                    }
+                    continue;
                 }catch(ExitModule eMd){
                     return eMd.retCode;
                 }
             }
-            return 0;
         }
 
         /// <summary>ディスパッチャを準備する</summary>

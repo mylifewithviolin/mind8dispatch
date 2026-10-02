@@ -5,9 +5,9 @@ namespace Mind8Kernel
     public partial class Dispatcher
     {
 
-        /*--------------------- ˆêƒoƒCƒgŒŸõ  ---------------------------*/
-        private void ItiBaitoKensaku(){	  /* ;WORD ˆêƒoƒCƒgŒŸõ SN  ¦‹Œ:NX */
-                /* MƒR[ƒh=0x01D7 */
+        /*--------------------- ï¿½ï¿½oï¿½Cï¿½gï¿½ï¿½ï¿½ï¿½  ---------------------------*/
+        private void ItiBaitoKensaku(){	  /* ;WORD ï¿½ï¿½oï¿½Cï¿½gï¿½ï¿½ï¿½ï¿½ SN  ï¿½ï¿½ï¿½ï¿½:NX */
+                /* Mï¿½Rï¿½[ï¿½h=0x01D7 */
             // UCHAR		*string;
             // size_t		 length;
             // UCHAR		 targByte;
@@ -18,23 +18,16 @@ namespace Mind8Kernel
             // charPos = searchByteDirect_Forward( string, length, targByte );
             // PUSH_Q( charPos, 0 );
             //#define POP_length_and_string  length=POP_C; string=POP_A
-            dtp.PopUl();//àDROP DataƒXƒ^ƒbƒN‚©‚çæ‚èo‚µ‚ÄÌ‚Ä‚é
+            dtp.PopUl();//ï¿½ï¿½DROP Dataï¿½Xï¿½^ï¿½bï¿½Nï¿½ï¿½ï¿½ï¿½ï¿½ï¿½oï¿½ï¿½ï¿½ÄÌ‚Ä‚ï¿½
             char targByte=(char)dtp.PopUb();
             uint length=dtp.PopUl();
             uint index=dtp.PopUl();
-            byte[] chars=mp.GetUb(index,length);
-            string text = Encoding.GetEncoding("shift_jis").GetString(chars);
-            uint charPos = SearchByteDirectForward( text, length, targByte );
+            uint charPos = mp.SearchByteDirectForward(index, length, checked((byte)targByte));
             dtp.PushUl(charPos);
             dtp.PushUl(0);
         }
-        private uint SearchByteDirectForward(string str,uint length,char targByte){
-            if (str.Length==0 || length==0) return 0;
-            int pos= str.IndexOf(targByte);
-            return (uint)(pos+1);
-        }
-        private void GyakuItiBaitoKensaku(){   /* ;WORD ‹t•ûŒü‚ÉˆêƒoƒCƒgŒŸõ SN  ¦‹Œ:NX */
-                /* MƒR[ƒh=0x01D8 */
+        private void GyakuItiBaitoKensaku(){   /* ;WORD ï¿½tï¿½ï¿½ï¿½ï¿½ï¿½Éˆï¿½oï¿½Cï¿½gï¿½ï¿½ï¿½ï¿½ SN  ï¿½ï¿½ï¿½ï¿½:NX */
+                /* Mï¿½Rï¿½[ï¿½h=0x01D8 */
             // UCHAR		*strNext;
             // size_t		 length;
             // UCHAR		 targByte;
@@ -44,7 +37,7 @@ namespace Mind8Kernel
             // charPos = searchByteDirect_Backward( strNext, length, targByte );
             // PUSH_Q( charPos, 0 );
             //#define POP_length_and_strNext length=POP_C; strNext=POP_A+length
-            dtp.PopUl();//àDROP DataƒXƒ^ƒbƒN‚©‚çæ‚èo‚µ‚ÄÌ‚Ä‚é
+            dtp.PopUl();//ï¿½ï¿½DROP Dataï¿½Xï¿½^ï¿½bï¿½Nï¿½ï¿½ï¿½ï¿½ï¿½ï¿½oï¿½ï¿½ï¿½ÄÌ‚Ä‚ï¿½
             char targByte=(char)dtp.PopUb();
             uint length=dtp.PopUl();
             //uint strNext=dtp.PopUl() + length;

@@ -1,7 +1,7 @@
     
 namespace Mind8Kernel
 {
-    /// <summary>MCode—ÌˆæƒAƒNƒZƒXƒ|ƒCƒ“ƒ^</summary>
+    /// <summary>MCodeï¿½Ìˆï¿½Aï¿½Nï¿½Zï¿½Xï¿½|ï¿½Cï¿½ï¿½ï¿½^</summary>
     public class MCodePointer{
         private readonly uint mcodeSize=2;
         private readonly uint mcodeSizeDouble=4;
@@ -14,13 +14,19 @@ namespace Mind8Kernel
             mcodeIndex=index;;
         }
         public void MoveMcodeIndexByByte(int point){
-            mcodeIndex=(uint)(mcodeIndex + point);//byte”z—ñƒCƒ“ƒfƒbƒNƒX’PˆÊ‚ÅˆÚ“®
+            mcodeIndex=(uint)(mcodeIndex + point);//byteï¿½zï¿½ï¿½Cï¿½ï¿½ï¿½fï¿½bï¿½Nï¿½Xï¿½Pï¿½Ê‚ÅˆÚ“ï¿½
         }
         public void MoveMcodeIndex(int point){
-            mcodeIndex=(uint)(mcodeIndex + point*mcodeSize);//byte”z—ñƒCƒ“ƒfƒbƒNƒX=ƒAƒhƒŒƒXƒ|ƒCƒ“ƒ^•Ï”‚Ì’l*2
+            mcodeIndex=(uint)(mcodeIndex + point*mcodeSize);//byteï¿½zï¿½ï¿½Cï¿½ï¿½ï¿½fï¿½bï¿½Nï¿½X=ï¿½Aï¿½hï¿½ï¿½ï¿½Xï¿½|ï¿½Cï¿½ï¿½ï¿½^ï¿½Ïï¿½ï¿½Ì’l*2
         }
         public uint GetMcodeIndex(){
             return mcodeIndex;
+        }
+        public uint AppendBytes(ReadOnlySpan<byte> bytes){
+            int index = mcodeArray.Length;
+            Array.Resize(ref mcodeArray, checked(index + bytes.Length));
+            bytes.CopyTo(mcodeArray.AsSpan(index));
+            return (uint)index;
         }
         public ushort ReadMcode(){
             byte[] int16Byte = new byte[mcodeSize];
@@ -40,7 +46,7 @@ namespace Mind8Kernel
         }
         public uint FetchMcodeInt(){ /* FETCH_MCODE_LONG */
             byte[] int32Byte = new byte[mcodeSizeDouble];
-            for (ulong i = 0; i < mcodeSize; i++) int32Byte[i] = mcodeArray[mcodeIndex + i];
+            for (ulong i = 0; i < mcodeSizeDouble; i++) int32Byte[i] = mcodeArray[mcodeIndex + i];
             mcodeIndex +=mcodeSizeDouble;
             return BitConverter.ToUInt32(int32Byte, 0);
         }
@@ -51,9 +57,31 @@ namespace Mind8Kernel
             return BitConverter.ToUInt16(int16Byte, 0);
         }
         public byte[] GetUb(uint index,uint count){
+            if (index > mcodeArray.Length || count > mcodeArray.Length - index)
+            {
+                throw new ArgumentOutOfRangeException(nameof(index), "Requested M-code byte range is outside the loaded data.");
+            }
+
             byte[] chars = new byte[count];
             for (uint i = 0; i < count; i++) chars[i] = mcodeArray[index + i];
             return chars;
+        }
+        public uint SearchByteDirectForward(uint index, uint count, byte target){
+            for (uint position = 0; position < count; position++)
+            {
+                uint currentIndex = checked(index + position);
+                if (currentIndex >= mcodeArray.Length)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(count), "Requested M-code search exceeds the loaded data.");
+                }
+
+                if (mcodeArray[currentIndex] == target)
+                {
+                    return position + 1;
+                }
+            }
+
+            return 0;
         }
         public short GetSs(){/* for signed short access  */
             byte[] int16Byte = new byte[mcodeSize];

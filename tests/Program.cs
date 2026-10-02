@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Diagnostics;
 using System.Reflection;
 using Mind8Kernel;
 
@@ -16,6 +17,15 @@ var tests = new (string Name, Action Run)[]
     ("short information table is rejected", TestShortFile),
     ("big-endian M-code and LOC values are converted", TestBigEndianConversion),
     ("truncated endian table is rejected", TestTruncatedEndianTable),
+    ("32-bit M-code values are fully read", TestMcodeIntFetch),
+    ("byte search handles null-terminated strings", TestByteSearch),
+    ("hello output matches the C kernel baseline", TestHelloOutputMatchesCReference),
+    ("stack reset resumes at the next instruction with reset stacks", TestStackResetResume),
+    ("loaded MCO resumes after stack reset", TestMcoStackResetResume),
+    ("finish dispatcher exits once", () => TestDispatchExit(0x0017, 0)),
+    ("stack data count exits once", () => TestDispatchExit(0x0018, 0)),
+    ("emergency exit preserves its exit code", () => TestDispatchExit(0x0013, 1)),
+    ("process exit preserves its requested code", TestProcessExitCode),
 };
 
 int failures = 0;
@@ -98,6 +108,166 @@ static void TestTruncatedEndianTable()
     Assert(!Load(fixture.Path).Loaded, "missing endian information table was accepted");
 }
 
+static void TestMcodeIntFetch()
+{
+    var pointer = new MCodePointer();
+    pointer.SetupMcodeArray([0x78, 0x56, 0x34, 0x12]);
+
+    Assert(pointer.FetchMcodeInt() == 0x12345678, "32-bit M-code value was truncated");
+    Assert(pointer.GetMcodeIndex() == 4, "32-bit M-code fetch advanced by an unexpected amount");
+}
+
+static void TestByteSearch()
+{
+    var pointer = new MCodePointer();
+    pointer.SetupMcodeArray([0x10]);
+    uint filenameIndex = pointer.AppendBytes([0x48, 0x69, 0x00]);
+
+    Assert(pointer.SearchByteDirectForward(filenameIndex, uint.MaxValue, 0) == 3,
+        "byte search did not stop at the null terminator");
+}
+
+static void TestHelloOutputMatchesCReference()
+{
+    string helloPath = Path.Combine(Directory.GetCurrentDirectory(), "hello.mco");
+    byte[] helloMco = File.ReadAllBytes(helloPath);
+    int headerOffset = helloMco.Length - 32;
+    WriteUInt16(helloMco, headerOffset + 22, 42, bigEndian: false);
+    using var fixture = new McoFixture(helloMco);
+
+    TextWriter originalOutput = Console.Out;
+    TextWriter originalError = Console.Error;
+    using var csharpOutput = new StringWriter();
+    Console.SetOut(csharpOutput);
+    Console.SetError(TextWriter.Null);
+    int csharpExitCode;
+    try
+    {
+        csharpExitCode = new Dispatcher().Main(fixture.Path);
+    }
+    finally
+    {
+        Console.SetOut(originalOutput);
+        Console.SetError(originalError);
+    }
+
+    string output = csharpOutput.ToString();
+    string cKernelPath = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "..", "mind8kernel", "obj", "kernel.exe"));
+    if (!File.Exists(cKernelPath))
+    {
+        Assert(csharpExitCode == 0, $"C# hello exit code was {csharpExitCode}, expected 0");
+        Assert(output == "Hello by mind8", $"C# hello output differs from the C reference: [{output}]");
+        return;
+    }
+
+    var startInfo = new ProcessStartInfo(cKernelPath)
+    {
+        RedirectStandardOutput = true,
+        RedirectStandardError = true,
+        UseShellExecute = false
+    };
+    startInfo.ArgumentList.Add(fixture.Path);
+    using Process cKernel = Process.Start(startInfo) ?? throw new InvalidOperationException("C kernel failed to start");
+    Task<string> cOutputTask = cKernel.StandardOutput.ReadToEndAsync();
+    Task<string> cErrorTask = cKernel.StandardError.ReadToEndAsync();
+    if (!cKernel.WaitForExit(10000))
+    {
+        cKernel.Kill(entireProcessTree: true);
+        throw new InvalidOperationException("C kernel did not exit within 10 seconds");
+    }
+
+    string cOutput = cOutputTask.GetAwaiter().GetResult();
+    string cError = cErrorTask.GetAwaiter().GetResult();
+    Assert(cKernel.ExitCode == csharpExitCode,
+        $"C/C# exit code mismatch: C={cKernel.ExitCode}, C#={csharpExitCode}; C stderr=[{cError}]");
+    Assert(cOutput == output, $"C/C# stdout mismatch: C=[{cOutput}], C#=[{output}]");
+}
+
+static void TestStackResetResume()
+{
+    DispatchFixture fixture = CreateDispatcher(0x0016, 0x0015, 0x0018);
+    fixture.DataStack.PushUl(123);
+    fixture.ReturnStack.PushUl(456);
+
+    int result = fixture.Dispatch();
+
+    Assert(result == 0, "dispatcher did not terminate after the resumed instruction");
+    Assert(fixture.McodePointer.GetMcodeIndex() == 0x76, "dispatch did not resume at the instruction after stack reset");
+    Assert(fixture.DataStack.GetCurrentStackPointer() == fixture.InitialDataStackPointer - 2,
+        "data stack was not reset before the stack check ran");
+    Assert(fixture.DataStack.GetUl() == 0 && fixture.DataStack.GetUlOffset(1) == 1,
+        "stack check did not observe the reset data stack");
+    Assert(fixture.ReturnStack.GetCurrentStackPointer() == fixture.InitialReturnStackPointer,
+        "return stack was not reset");
+}
+
+static void TestMcoStackResetResume()
+{
+    using var fixture = new McoFixture(CreateMco(executionOpcodes: [0x0016, 0x0015, 0x0018]));
+
+    int result = new Dispatcher().Main(fixture.Path);
+
+    Assert(result == 0, "loaded MCO did not resume and finish after stack reset");
+}
+
+static void TestDispatchExit(ushort opcode, int expectedExitCode)
+{
+    DispatchFixture fixture = CreateDispatcher(opcode, 0x0012);
+
+    int result = fixture.Dispatch();
+
+    Assert(result == expectedExitCode, "dispatch exit returned an unexpected code");
+    Assert(fixture.McodePointer.GetMcodeIndex() == 0x72, "dispatch continued after its exit handler");
+}
+
+static void TestProcessExitCode()
+{
+    DispatchFixture fixture = CreateDispatcher(0x0014, 0x0012);
+    fixture.DataStack.PushUl(37);
+    fixture.DataStack.PushUl(0);
+
+    int result = fixture.Dispatch();
+
+    Assert(result == 37, "process exit did not preserve the requested exit code");
+    Assert(fixture.McodePointer.GetMcodeIndex() == 0x72, "dispatcher resumed after process exit");
+}
+
+static DispatchFixture CreateDispatcher(params ushort[] opcodes)
+{
+    var dispatcher = new Dispatcher();
+    Type dispatcherType = typeof(Dispatcher);
+    var mcode = new byte[256];
+    for (int index = 0; index < opcodes.Length; index++)
+    {
+        BinaryPrimitives.WriteUInt16LittleEndian(mcode.AsSpan(0x70 + index * 2, 2), opcodes[index]);
+    }
+
+    var mcodePointer = new MCodePointer();
+    mcodePointer.SetupMcodeArray(mcode);
+    mcodePointer.ResetMcodeIndex(0x70);
+    var dataStack = new StackPointer();
+    dataStack.SetupStackArray(64);
+    var returnStack = new StackPointer();
+    returnStack.SetupStackArray(64);
+    SetField(dispatcherType, dispatcher, "McodeBase", mcode);
+    SetField(dispatcherType, dispatcher, "mp", mcodePointer);
+    SetField(dispatcherType, dispatcher, "dtp", dataStack);
+    SetField(dispatcherType, dispatcher, "rtp", returnStack);
+
+    MethodInfo setupFunctions = dispatcherType.GetMethod("SetupCsFunctions", BindingFlags.Instance | BindingFlags.NonPublic)!;
+    object?[] functionArguments = [Array.Empty<Action>()];
+    setupFunctions.Invoke(dispatcher, functionArguments);
+    Action[] functions = (Action[])functionArguments[0]!;
+
+    return new DispatchFixture(dispatcher, mcodePointer, dataStack, returnStack, functions,
+        dataStack.GetCurrentStackPointer(), returnStack.GetCurrentStackPointer());
+}
+
+static void SetField(Type declaringType, object target, string name, object value)
+{
+    declaringType.GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(target, value);
+}
+
 static LoadResult Load(string filename)
 {
     var dispatcher = new Dispatcher();
@@ -114,6 +284,7 @@ static LoadResult Load(string filename)
 static byte[] CreateMco(
     bool bigEndian = false,
     byte[]? endianInfo = null,
+    ushort[]? executionOpcodes = null,
     bool includeEndianInfo = true,
     Action<byte[], bool>? mutateHeader = null)
 {
@@ -134,6 +305,13 @@ static byte[] CreateMco(
     else
     {
         BinaryPrimitives.WriteUInt32LittleEndian(locTable, 0x70);
+    }
+    if (executionOpcodes is not null)
+    {
+        for (int index = 0; index < executionOpcodes.Length; index++)
+        {
+            BinaryPrimitives.WriteUInt16LittleEndian(mcode.AsSpan(0x70 + index * 2, 2), executionOpcodes[index]);
+        }
     }
 
     byte[] header = new byte[32];
@@ -205,6 +383,25 @@ static void Assert(bool condition, string message)
 }
 
 sealed record LoadResult(bool Loaded, byte[] Mcode, byte[] LocTable);
+
+sealed record DispatchFixture(
+    Dispatcher Dispatcher,
+    MCodePointer McodePointer,
+    StackPointer DataStack,
+    StackPointer ReturnStack,
+    Action[] Functions,
+    uint InitialDataStackPointer,
+    uint InitialReturnStackPointer)
+{
+    public int Dispatch()
+    {
+        Type dispatcherType = typeof(Dispatcher);
+        Type infoType = dispatcherType.GetNestedType("McodeInfoStruct", BindingFlags.NonPublic)!;
+        MethodInfo dispatch = dispatcherType.GetMethod("Dispatch", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        object?[] arguments = [Activator.CreateInstance(infoType), Functions];
+        return (int)dispatch.Invoke(Dispatcher, arguments)!;
+    }
+}
 
 sealed class McoFixture : IDisposable
 {

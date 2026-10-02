@@ -1,36 +1,35 @@
-using System.Runtime.InteropServices;
 using System.Text;
 
 namespace Mind8Kernel
 {
     public partial class Dispatcher
     {
-        /*--------------------- „‚ÌƒvƒƒOƒ‰ƒ€–¼  -----------------------*/
+        /*--------------------- ï¿½ï¿½ï¿½Ìƒvï¿½ï¿½ï¿½Oï¿½ï¿½ï¿½ï¿½ï¿½ï¿½  -----------------------*/
         private void CmcodeFullFilename(){		/* ;WORD c_mcodeFullFilename */
-                /* MƒR[ƒh=0x0261 */
+                /* Mï¿½Rï¿½[ï¿½h=0x0261 */
             //PUSH_S( FullFilename, 0 );
             //#define  PUSH_S(addr,count)   PUSH_A(addr),PUSH_C(count)
             // #define  PUSH_L(value)        *(--DstackPointer)=(LONG)(value)
             // #define  PUSH_U(value)        PUSH_L(value)
             // #define  PUSH_A(addr)         PUSH_U(addr)
             // #define  PUSH_C(count)        PUSH_U(count)
-            IntPtr ptr =Marshal.StringToHGlobalAnsi(mcodefilename);
-            dtp.PushUl((uint)ptr);//b’è
+            byte[] filenameBytes = Encoding.GetEncoding("shift_jis").GetBytes(mcodefilename + '\0');
+            dtp.PushUl(mp.AppendBytes(filenameBytes));
             dtp.PushUl(0);
         }
-        private void GetArgC()		/* ;WORD ‚‚’‚‡‚ƒ */
+        private void GetArgC()		/* ;WORD ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ */
         {
-            /* MƒR[ƒh=0x0264 */
-            /* (. ¨@argc) */
+            /* Mï¿½Rï¿½[ï¿½h=0x0264 */
+            /* (. ï¿½ï¿½ï¿½@argc) */
             //PUSH_Q( Argc, 0 );
-            dtp.PushUl((uint)argc);//b’è
+            dtp.PushUl((uint)argc);//ï¿½bï¿½ï¿½
             dtp.PushUl(0);
         }
-        /*--------------------- •W€“üo—Í  -----------------------------*/
-        private void OutputDevice()	/* ;WORD ƒtƒ@ƒCƒ‹ƒnƒ“ƒhƒ‹w’è‚Åo—Í */
+        /*--------------------- ï¿½Wï¿½ï¿½ï¿½ï¿½ï¿½oï¿½ï¿½  -----------------------------*/
+        private void OutputDevice()	/* ;WORD ï¿½tï¿½@ï¿½Cï¿½ï¿½ï¿½nï¿½ï¿½ï¿½hï¿½ï¿½ï¿½wï¿½ï¿½Åoï¿½ï¿½ */
         {
-                /* MƒR[ƒh=0x026D */  
-            /* (strinfo, filehandle ¨ .) */
+                /* Mï¿½Rï¿½[ï¿½h=0x026D */
+            /* (strinfo, filehandle ï¿½ï¿½ .) */
             //     int		 filehandle;
             //     size_t		 length;
             //     UCHAR		*string;
@@ -39,9 +38,9 @@ namespace Mind8Kernel
             // filehandle = POP_U_OF_Q;
             // length = POP_C;
             // string = POP_A;
-            // write( filehandle, string, length );	/* ƒGƒ‰[‚ÍŒ©‚È‚¢ */
+            // write( filehandle, string, length );	/* ï¿½Gï¿½ï¿½ï¿½[ï¿½ÍŒï¿½ï¿½È‚ï¿½ */
             dtp.PopUl();
-            uint filehandle=dtp.PopUl();//Ì‚Ä‚é
+            uint filehandle=dtp.PopUl();//ï¿½Ì‚Ä‚ï¿½
             uint length=dtp.PopUl();
             uint index=dtp.PopUl();              
             byte[] chars=mp.GetUb(index,length);
