@@ -1,8 +1,13 @@
 {
   "version": 2,
-  "dgSpecHash": "E+AP13LZk37AdfkLcopKa2zG/I9SFzqXaYhdt2FxY5luazZT2cNUeflI2ithbwV1WMQ+8CvS5AXlmiPrcG5pig==",
+  "dgSpecHash": "b/LYFoU8KyY=",
   "success": true,
   "projectFilePath": "C:\\developments\\vscode\\mind8dispatch\\mind8dispatch.csproj",
-  "expectedPackageFiles": [],
+  "expectedPackageFiles": [
+    "C:\\Users\\yoshiaki\\.nuget\\packages\\microsoft.netcore.app.ref\\8.0.32\\microsoft.netcore.app.ref.8.0.32.nupkg.sha512",
+    "C:\\Users\\yoshiaki\\.nuget\\packages\\microsoft.windowsdesktop.app.ref\\8.0.32\\microsoft.windowsdesktop.app.ref.8.0.32.nupkg.sha512",
+    "C:\\Users\\yoshiaki\\.nuget\\packages\\microsoft.aspnetcore.app.ref\\8.0.32\\microsoft.aspnetcore.app.ref.8.0.32.nupkg.sha512",
+    "C:\\Users\\yoshiaki\\.nuget\\packages\\microsoft.netcore.app.host.win-x64\\8.0.32\\microsoft.netcore.app.host.win-x64.8.0.32.nupkg.sha512"
+  ],
   "logs": []
 }

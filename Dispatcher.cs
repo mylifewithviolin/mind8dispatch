@@ -12,6 +12,12 @@ namespace Mind8Kernel
         private const int MajorVersion = 8;
         private const byte RuntimeNumber = 10;
         private const ushort SerialNumber = 42;
+        private const uint DataAddressBit = 0x80000000;
+
+        private byte[] ReadStringBytes(uint address, uint length) =>
+            (address & DataAddressBit) != 0
+                ? ap.GetBytes(address & ~DataAddressBit, length)
+                : mp.GetUb(address, length);
         
         /// <summary>MCode情報構造体</summary>
         private struct McodeInfoStruct	     /*-- 全体=32バイト --*/
@@ -112,7 +118,10 @@ namespace Mind8Kernel
                     int i=0;
                     for(;;)
                     {
+                        BeforeInstruction?.Invoke(this);
                         mcode = mp.FetchMcode();
+                        if (TraceEnabled)
+                        {
                         Console.Error.Write("{0,4:d} {1,4:X4} {2,6:d} {3,6:d}",++i,mcode,mcode,mp.GetMcodeIndex());
                         Console.Error.WriteLine(" {0,6:d} {1,8:d} {2,8:d} {3,6:d} {4,8:d} {5,8:d}",dtp.GetCurrentStackPointer(),dtp.GetUl(),
                                                     dtp.GetUlOffset(1),
@@ -121,6 +130,7 @@ namespace Mind8Kernel
                                                     // dtp.GetUlOffset(4),
                                                     // dtp.GetUlOffset(5),
                                                     rtp.GetCurrentStackPointer(),rtp.GetUl(),rtp.GetUlOffset(1));
+                        }
       ;                  // int mpCurrentIndex= (int)mp.GetMcodeIndex();
                         // if(mpCurrentIndex<10){
                         //     MonitorMcode(McodeBase,0,mpCurrentIndex+20);//mcode±10の範囲のMCode領域をモニタする
@@ -130,6 +140,9 @@ namespace Mind8Kernel
                         if ( (mcode & 0x8000)==0 )
                         {
                             /* C#関数 */
+                            if(mcode >= csFuncs.Length || csFuncs[mcode] is null){
+                                throw new NotSupportedException($"M-code 0x{mcode:X4} at byte offset 0x{mp.GetMcodeIndex() - 2:X} is not implemented.");
+                            }
                             csFuncs[mcode]();
                         }
                         else

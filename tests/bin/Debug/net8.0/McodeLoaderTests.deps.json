@@ -16,7 +16,10 @@
       },
       "mind8dispatch/1.0.0": {
         "runtime": {
-          "mind8dispatch.dll": {}
+          "mind8dispatch.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
         }
       }
     }

@@ -5,10 +5,10 @@ namespace Mind8Kernel
     public partial class Dispatcher
     {
 
-        /*--------------------- •\Ž¦Œn  --------------------------------*/
-        private void ZzHyouji()                	/* ;WORD •\Ž¦ */
+        /*--------------------- è¡¨ç¤ºç³»  --------------------------------*/
+        private void ZzHyouji()                	/* ;WORD ï¼„ï¼„è¡¨ç¤º */
         {
-                /* MƒR[ƒh=0x00C1 */
+                /* Mã‚³ãƒ¼ãƒ‰=0x00C1 */
             // ULONG	count;
             // UCHAR  *addr;
             // count = POP_C;
@@ -19,10 +19,20 @@ namespace Mind8Kernel
             // printStrinf( addr, count );
             uint count=dtp.PopUl();
             uint index=dtp.PopUl();
-            byte[] chars=mp.GetUb(index,count);
+            byte[] chars=ReadStringBytes(index,count);
             string text = Encoding.GetEncoding("shift_jis").GetString(chars);
             Console.Write(text);
 
+        }
+
+        private void ZzKaigyou() => Console.Write("\n");
+
+        private void ZzBaiseidoHyouji()
+        {
+            ulong high = dtp.PopUl();
+            ulong low = dtp.PopUl();
+            long value = unchecked((long)((high << 32) | low));
+            Console.Write(value.ToString(System.Globalization.CultureInfo.InvariantCulture));
         }
     }
 }

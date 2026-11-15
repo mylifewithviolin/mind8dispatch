@@ -66,6 +66,11 @@ namespace Mind8Kernel
             for (uint i = 0; i < count; i++) chars[i] = mcodeArray[index + i];
             return chars;
         }
+        public void ClearBytes(uint index, uint count){
+            if (index > mcodeArray.Length || count > mcodeArray.Length - index)
+                throw new ArgumentOutOfRangeException(nameof(index), "Requested M-code byte range is outside the loaded data.");
+            mcodeArray.AsSpan(checked((int)index), checked((int)count)).Clear();
+        }
         public uint SearchByteDirectForward(uint index, uint count, byte target){
             for (uint position = 0; position < count; position++)
             {

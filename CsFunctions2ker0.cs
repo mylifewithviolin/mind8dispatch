@@ -2,48 +2,56 @@ namespace Mind8Kernel
 {
     public partial class Dispatcher
     {
-        /*--------------------- Š¿šƒR[ƒh‚ÌŒŸ¸  (Shift-JIS”Å) --------*/
+        private void IsKuretu()
+        {
+            uint length = dtp.PopUl();
+            dtp.PopUl();
+            dtp.PushUl(length == 0 ? 1u : 0u);
+            dtp.PushUl(0);
+        }
+
+        /*--------------------- æ¼¢å­—ã‚³ãƒ¼ãƒ‰ã®æ¤œæŸ»  (Shift-JISç‰ˆ) --------*/
         private static bool IsThisByteKanji_SJIS(byte c) {
             return ((c)>=0x81 && (c)<= 0x9f) || (((c)>=0xe0) ? true : false);
         }
         private static bool IsThisByteKanji(byte c) {
             return IsThisByteKanji_SJIS(c);
         }	
-        /*--------------------- isLastCharKanji()  (Shift-JIS”Å)-------*/
-        private	uint  IsLastCharKanji(			/* –ß’l:0or1 */
-                // UCHAR	*s,		/* ˆø”1:NEXTƒAƒhƒŒƒX */
-                // size_t	length		/* ˆø”2:’·‚³         */
+        /*--------------------- isLastCharKanji()  (Shift-JISç‰ˆ)-------*/
+        private	uint  IsLastCharKanji(			/* æˆ»å€¤:0or1 */
+                // UCHAR	*s,		/* å¼•æ•°1:NEXTã‚¢ãƒ‰ãƒ¬ã‚¹ */
+                // size_t	length		/* å¼•æ•°2:é•·ã•         */
                 uint indexNext,
                 uint length
 		   )
         {
             //     UCHAR   c;
             //     size_t	kanjiCounter;
-             // s -= 2;					/* s=•¶š—ñ‚Ì‰E’[-1ƒoƒCƒg–Ú */
-            // kanjiCounter = 0;			/* “ÁêƒJƒEƒ“ƒ^‚ğƒNƒŠƒA‚·‚é */           
+             // s -= 2;					/* s=æ–‡å­—åˆ—ã®å³ç«¯-1ãƒã‚¤ãƒˆç›® */
+            // kanjiCounter = 0;			/* ç‰¹æ®Šã‚«ã‚¦ãƒ³ã‚¿ã‚’ã‚¯ãƒªã‚¢ã™ã‚‹ */           
             byte c;
             uint kanjiCounter=0;
             indexNext -= 2;	
 
             // while( length >= 2)
             // {
-            //     c = *s--;			/* c=––”ö‚©‚ç2ƒoƒCƒg–Ú   */
-            //     if ( isThisByteKanji(c) )	/* ‚»‚ê‚ÍŠ¿š‘æˆêƒoƒCƒg? */
+            //     c = *s--;			/* c=æœ«å°¾ã‹ã‚‰2ãƒã‚¤ãƒˆç›®   */
+            //     if ( isThisByteKanji(c) )	/* ãã‚Œã¯æ¼¢å­—ç¬¬ä¸€ãƒã‚¤ãƒˆ? */
             //     {
-            //         length--;		/* •¶š—ñ’·‚³1ƒoƒCƒgk¬  */
-            //         kanjiCounter++;		/* “ÁêƒJƒEƒ“ƒ^‚ğˆê‚Â‘‰Á */
+            //         length--;		/* æ–‡å­—åˆ—é•·ã•1ãƒã‚¤ãƒˆç¸®å°  */
+            //         kanjiCounter++;		/* ç‰¹æ®Šã‚«ã‚¦ãƒ³ã‚¿ã‚’ä¸€ã¤å¢—åŠ  */
             //     }
             //     else
             //     {
             //         break;
             //     }
             // }
-            // return (kanjiCounter & 1);		/* “ÁêƒJƒEƒ“ƒ^‚ªŠï”‚È‚ç */
+            // return (kanjiCounter & 1);		/* ç‰¹æ®Šã‚«ã‚¦ãƒ³ã‚¿ãŒå¥‡æ•°ãªã‚‰ */
             while(length >= 2){
                 c=(byte)indexNext--;
                 if(IsThisByteKanji(c) ){
-                    length--;/* •¶š—ñ’·‚³1ƒoƒCƒgk¬  */
-                    kanjiCounter++;/* “ÁêƒJƒEƒ“ƒ^‚ğˆê‚Â‘‰Á */
+                    length--;/* æ–‡å­—åˆ—é•·ã•1ãƒã‚¤ãƒˆç¸®å°  */
+                    kanjiCounter++;/* ç‰¹æ®Šã‚«ã‚¦ãƒ³ã‚¿ã‚’ä¸€ã¤å¢—åŠ  */
                 }else{
                     break;
                 }
@@ -51,15 +59,15 @@ namespace Mind8Kernel
             return kanjiCounter & 1;
         }	
 
-        private uint LimitTail(				/* –ß’l:íŒ¸ƒoƒCƒg” */
-		uint		 length,	/* ˆø”1:•¶š—ñ’·‚³ */
-		uint		 indexNext,	/* ˆø”2:•¶š—ñNEXTƒAƒhƒŒƒX */
-		uint		 limit		/* ˆø”3:§ŒÀŒ…”   */
+        private uint LimitTail(				/* æˆ»å€¤:å‰Šæ¸›ãƒã‚¤ãƒˆæ•° */
+		uint		 length,	/* å¼•æ•°1:æ–‡å­—åˆ—é•·ã• */
+		uint		 indexNext,	/* å¼•æ•°2:æ–‡å­—åˆ—NEXTã‚¢ãƒ‰ãƒ¬ã‚¹ */
+		uint		 limit		/* å¼•æ•°3:åˆ¶é™æ¡æ•°   */
 	     )
         {
             uint deleted=0;
             uint	oneOrTwo;
-            while( length > limit )/* Œ…” „ ƒŠƒ~ƒbƒg */
+            while( length > limit )/* æ¡æ•° ï¼ ãƒªãƒŸãƒƒãƒˆ */
             {
                 oneOrTwo = IsLastCharKanji(indexNext, length ) + 1;
                 length  -= oneOrTwo;
@@ -67,26 +75,26 @@ namespace Mind8Kernel
             }
             return deleted;
         }
-        /*--------------------- •¶š—ñÀ‘Ì•Ï”‚Ö‚ÌŠi”[  ------------------*/   
+        /*--------------------- æ–‡å­—åˆ—å®Ÿä½“å¤‰æ•°ã¸ã®æ ¼ç´  ------------------*/   
 
         private void PopJvar_0(uint varIndex,uint varLength)
-                    // tGeneralPointer  varAddr,	/* ‘æ1ˆø”:•Ï”ƒAƒhƒŒƒX */
-                    // size_t		 varLength	/* ‘æ2ˆø”:•Ï”’·‚³     */
+                    // tGeneralPointer  varAddr,	/* ç¬¬1å¼•æ•°:å¤‰æ•°ã‚¢ãƒ‰ãƒ¬ã‚¹ */
+                    // size_t		 varLength	/* ç¬¬2å¼•æ•°:å¤‰æ•°é•·ã•     */
                     //  )
         {
-                /* (strinfo ¨ .) */
+                /* (strinfo â†’ .) */
 
                 // size_t		 length;
                 // UCHAR		*string;
                 // size_t		 deleted;
 
-                /*-[•Ï”]----------------------*/
+                /*-[å¤‰æ•°]----------------------*/
                 /*   +0(D): length             */
                 /*   +4(D): margin             */
                 /*   +6(B): "string"           */
                 /*-----------------------------*/
 
-            /* •¶š—ñ‚Ìæ‚èo‚µ */
+            /* æ–‡å­—åˆ—ã®å–ã‚Šå‡ºã— */
             // POP_length_and_string;
             //#define POP_length_and_string  length=POP_C; string=POP_A                       
             //#define  POP_L                (*DstackPointer++)
@@ -95,27 +103,27 @@ namespace Mind8Kernel
             //#define  POP_A                ((UCHAR *)(*DstackPointer++))
             uint length=dtp.PopUl();
             uint index=dtp.PopUl();
-            // /* Ši”[Œ³‚Ì•¶š—ñ‚ÌŒ…”§ŒÀ */
+            // /* æ ¼ç´å…ƒã®æ–‡å­—åˆ—ã®æ¡æ•°åˆ¶é™ */
             // if ( length > varLength )
-            // {	/* ’Ç‰Á‚ª•Ï”‚æ‚è’·‚¢ */
+            // {	/* è¿½åŠ ãŒå¤‰æ•°ã‚ˆã‚Šé•·ã„ */
             // 	deleted = limitTail( length, (string+length), varLength );
-            // 	length -= deleted;			/* ’Ç‰Á•¶š—ñ‚ğk¬ */
+            // 	length -= deleted;			/* è¿½åŠ æ–‡å­—åˆ—ã‚’ç¸®å° */
             // }
             if(length > varLength){
              	uint deleted = LimitTail( length, index+length, varLength );
-             	length -= deleted;			/* ’Ç‰Á•¶š—ñ‚ğk¬ */
+             	length -= deleted;			/* è¿½åŠ æ–‡å­—åˆ—ã‚’ç¸®å° */
             }
             if(length>0){
 
             }
-                /* ƒwƒbƒ_•”‹L“ü */
+                /* ãƒ˜ãƒƒãƒ€éƒ¨è¨˜å…¥ */
             //     varAddr.u[0] = length;
             //     varAddr.u[1] = 0;
 
-            //     /* –{‘Ì•”“]‘— */
+            //     /* æœ¬ä½“éƒ¨è»¢é€ */
             // if ( length )
             //     {	/* ------------------------------------- */
-            //     	/* ’:ˆÀ‘S‚Ì‚½‚ß’·‚³ƒ[ƒ‚Ìê‡‚ÍŒÄ‚Î‚È‚¢ */
+            //     	/* æ³¨:å®‰å…¨ã®ãŸã‚é•·ã•ã‚¼ãƒ­ã®å ´åˆã¯å‘¼ã°ãªã„ */
             // 	/* ------------------------------------- */
             // 	memmove( &(varAddr.u[2]), (void *)string, length );
             //     }
@@ -124,24 +132,24 @@ namespace Mind8Kernel
 
         private void ZzPopJvar()           /* ;WORD $$POP_JVAR */
         {
-                /* MƒR[ƒh=0x0164 */
-                /* (strinfo, [AccessPointer(•¶š—ñÀ‘Ì)] ¨ .) */
+                /* Mã‚³ãƒ¼ãƒ‰=0x0164 */
+                /* (strinfo, [AccessPointer(æ–‡å­—åˆ—å®Ÿä½“)] â†’ .) */
 
             // 	size_t	varLength;
 
-            //     /*-[Mcode¶¬]-----------------*/
+            //     /*-[Mcodeç”Ÿæˆ]-----------------*/
             //     /*   +0(D): size(32)           */
             //     /*-----------------------------*/
 
-            //     /*-[•Ï”]----------------------*/
-            //     /*   +0(D): length             */       /* ©[AccessPointer] */
+            //     /*-[å¤‰æ•°]----------------------*/
+            //     /*   +0(D): length             */       /* â†[AccessPointer] */
             //     /*   +4(D): margin             */
             //     /*   +6(B): "string"           */
             //     /*-----------------------------*/
 
-            // /* •Ï”’·‚³‚ğ’m‚é */
+            // /* å¤‰æ•°é•·ã•ã‚’çŸ¥ã‚‹ */
             // varLength = FETCH_MCODE_ULONG;
-            // /* •¶š—ñŠi”[ŠÖ”‚ğŒÄ‚Ô */
+            // /* æ–‡å­—åˆ—æ ¼ç´é–¢æ•°ã‚’å‘¼ã¶ */
             // 	popJvar_0( AccessPointer, varLength );
             uint varIndex=ap.GetCurrentDataIndex();
             uint varLength=mp.FetchMcodeInt();
@@ -151,20 +159,20 @@ namespace Mind8Kernel
 
         private void ZzWriteJvar()         /* ;WORD $$WRITE_JVAR */
         {
-                /* MƒR[ƒh=0x0165 */
-                /* (strinfo ¨ .) */
+                /* Mã‚³ãƒ¼ãƒ‰=0x0165 */
+                /* (strinfo â†’ .) */
 
-            //     /*-[Mcode¶¬]-----------------*/
+            //     /*-[Mcodeç”Ÿæˆ]-----------------*/
             //     /*   +0(D): dataLocation       */
             //     /*   +4(D): size(32)           */
             //     /*-----------------------------*/
 
             // 		tGeneralPointer  varAddr;
             // 		size_t		 varLength;
-            // /* ƒƒP[ƒVƒ‡ƒ“‚Æ•Ï”’·‚³‚ğ’m‚é */
+            // /* ãƒ­ã‚±ãƒ¼ã‚·ãƒ§ãƒ³ã¨å¤‰æ•°é•·ã•ã‚’çŸ¥ã‚‹ */
             // varAddr.b = DataBase + FETCH_MCODE_ULONG;
             // varLength = FETCH_MCODE_ULONG;
-            // /* •¶š—ñŠi”[ŠÖ”‚ğŒÄ‚Ô */
+            // /* æ–‡å­—åˆ—æ ¼ç´é–¢æ•°ã‚’å‘¼ã¶ */
             // 	popJvar_0( varAddr, varLength );
             uint varIndex=mp.FetchMcodeInt();
             uint varLength=mp.FetchMcodeInt();
@@ -173,10 +181,10 @@ namespace Mind8Kernel
 
         private void ZzWriteJvarLocal()    /* ;WORD $$WRITE_JVAR_LOCAL */
         {
-                /* MƒR[ƒh=0x0166 */
-                /* (strinfo ¨ .) */
+                /* Mã‚³ãƒ¼ãƒ‰=0x0166 */
+                /* (strinfo â†’ .) */
 
-            //     /*-[Mcode¶¬]-----------------*/
+            //     /*-[Mcodeç”Ÿæˆ]-----------------*/
             //     /*   +0(W): offset             */
             //     /*   +2(W): size(16)           */
             //     /*-----------------------------*/
@@ -185,23 +193,23 @@ namespace Mind8Kernel
             // 		size_t		 varLength;
             // varAddr.b = (UCHAR *)RstackPointer + FETCH_MCODE;
             // varLength = FETCH_MCODE;
-            // /* •¶š—ñŠi”[ŠÖ”‚ğŒÄ‚Ô */
+            // /* æ–‡å­—åˆ—æ ¼ç´é–¢æ•°ã‚’å‘¼ã¶ */
             // 	popJvar_0( varAddr, varLength );
             uint varIndex=mp.FetchMcode();
             uint varLength=mp.FetchMcode();
             PopJvar_0(varIndex,varLength);
         }
 
-        private void MojiretuJittaiWoIre()	/* ;WORD •¶š—ñÀ‘Ì‚ğ“ü‚ê .J XSW WRT HE */
+        private void MojiretuJittaiWoIre()	/* ;WORD æ–‡å­—åˆ—å®Ÿä½“ã‚’å…¥ã‚Œ .J XSW WRT HE */
         {
-                /* MƒR[ƒh=0x0167 */
-            /* (strinfo, varinfo ¨ .) */
+                /* Mã‚³ãƒ¼ãƒ‰=0x0167 */
+            /* (strinfo, varinfo â†’ .) */
 
             // 		tGeneralPointer  varAddr;
             // 		size_t	 	 varLength;
             // varLength = POP_C;
             // varAddr.b = POP_A;
-            // /* •¶š—ñŠi”[ŠÖ”‚ğŒÄ‚Ô */
+            // /* æ–‡å­—åˆ—æ ¼ç´é–¢æ•°ã‚’å‘¼ã¶ */
             // 	popJvar_0( varAddr, varLength );
             uint varLength=dtp.PopUl();
             uint varIndex=dtp.PopUl();
@@ -209,6 +217,6 @@ namespace Mind8Kernel
 
         }
 
-        /*----------- ‚»‚Ì‘¼A•¶š—ñÀ‘Ìî•ñ‚É‚æ‚éƒIƒyƒŒ[ƒVƒ‡ƒ“  ---------*/
+        /*----------- ãã®ä»–ã€æ–‡å­—åˆ—å®Ÿä½“æƒ…å ±ã«ã‚ˆã‚‹ã‚ªãƒšãƒ¬ãƒ¼ã‚·ãƒ§ãƒ³  ---------*/
     }
 }

@@ -2,9 +2,9 @@ namespace Mind8Kernel
 {
     public partial class Dispatcher
     {
-        /*--------------------- •¶š—ñî•ñ•ª‰ğE‡¬  -------------------*/
-        private void MojiretuJyouhouBunkai(){	/* ;WORD •¶š—ñî•ñ•ª‰ğ .S */
-                /* MƒR[ƒh=0x00BE */
+        /*--------------------- æ–‡å­—åˆ—æƒ…å ±åˆ†è§£ãƒ»åˆæˆ  -------------------*/
+        private void MojiretuJyouhouBunkai(){	/* ;WORD æ–‡å­—åˆ—æƒ…å ±åˆ†è§£ .S */
+                /* Mã‚³ãƒ¼ãƒ‰=0x00BE */
             // UCHAR *addr;
             // ULONG count = POP_C;
             // addr  = POP_A;
@@ -17,14 +17,14 @@ namespace Mind8Kernel
             dtp.PushUl(count);
             dtp.PushUl(0);
         }
-        private void MojiretuJyouhouGousei(){	/* ;WORD •¶š—ñî•ñ‡¬ NN XSW */
-                /* MƒR[ƒh=0x00BF */
+        private void MojiretuJyouhouGousei(){	/* ;WORD æ–‡å­—åˆ—æƒ…å ±åˆæˆ NN XSW */
+                /* Mã‚³ãƒ¼ãƒ‰=0x00BF */
             // ULONG count = POP_U_OF_Q;
             // WRITE_C( count );
             // #define  WRITE_L(value)       *DstackPointer=(LONG)(value)
             // #define  WRITE_F(value)       WRITE_L(value)
             // #define  WRITE_C(count)       WRITE_F(count)
-            dtp.PopUl();//àDROP DataƒXƒ^ƒbƒN‚©‚çæ‚èo‚µ‚ÄÌ‚Ä‚é
+            dtp.PopUl();//â‰’DROP Dataã‚¹ã‚¿ãƒƒã‚¯ã‹ã‚‰å–ã‚Šå‡ºã—ã¦æ¨ã¦ã‚‹
             uint count=dtp.PopUl();
             dtp.SetUl(count);
 

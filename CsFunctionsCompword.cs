@@ -380,6 +380,19 @@ namespace Mind8Kernel
         }
 
         /*---------------------  大域変数のセットアップ  ------------------*/
+        private void ZzPointQarray()
+        {
+            uint offset = mp.FetchMcodeInt();
+            uint elements = mp.FetchMcodeInt();
+            dtp.PopUl();
+            uint index = dtp.PopUl();
+            if (index == 0 || index > elements)
+            {
+                throw new IndexOutOfRangeException($"Array index {index} is outside 1..{elements}.");
+            }
+            ap.ResetDataIndex(checked(offset + (index - 1) * 8));
+        }
+
         private void ZzPointVarAddr(){   /* ;WORD $$POINT_VARADDR */
                 /* Mコード=0x0036 */
                 //AccessPointer.b = DataBase + FETCH_MCODE_LONG;
@@ -401,7 +414,7 @@ namespace Mind8Kernel
             // #define  PUSH_U(value)        PUSH_L(value)
             // #define  PUSH_A(addr)         PUSH_U(addr)
             // #define  PUSH_C(count)        PUSH_U(count)
-            dtp.PushUl(mp.FetchMcodeInt());//byte配列なので絶対アドレスない
+            dtp.PushUl(DataAddressBit | mp.FetchMcodeInt());
             dtp.PushUl(mp.FetchMcodeInt());
         }
         private void ZzPushMcodeAddrPlusSize(){	/* ;WORD $$PUSH_MCODEADDR+SIZE */
@@ -416,47 +429,47 @@ namespace Mind8Kernel
         private void ZzPointLocalAddr0W(){ /* ;WORD $$POINT_LOCALADDR_0W */
                 /* Mコード=0x003A */
             //AccessPointer.s = (SHORT *)RstackPointer;
-            ap.ResetDataIndex(rtp.GetUlOffset(0));
+            ap.PointStack(rtp, 0);
         }
         private void ZzPointLocalAddr1W(){ /* ;DUMMYWORD */
                 /* Mコード=0x003B */
             //AccessPointer.s = (SHORT *)RstackPointer + 1;
-            ap.ResetDataIndex(rtp.GetUlOffset(1));
+            ap.PointStack(rtp, 2);
         }
         private void ZzPointLocalAddr2W(){ /* ;DUMMYWORD */
                 /* Mコード=0x003C */
             //AccessPointer.s = (SHORT *)RstackPointer + 2;
-            ap.ResetDataIndex(rtp.GetUlOffset(2));
+            ap.PointStack(rtp, 4);
         }
         private void ZzPointLocalAddr3W(){ /* ;DUMMYWORD */
                 /* Mコード=0x003D */
             //AccessPointer.s = (SHORT *)RstackPointer + 3;
-            ap.ResetDataIndex(rtp.GetUlOffset(3));
+            ap.PointStack(rtp, 6);
         }
         private void ZzPointLocalAddr4W(){ /* ;DUMMYWORD */
                 /* Mコード=0x003E */
             //AccessPointer.s = (SHORT *)RstackPointer + 4;
-            ap.ResetDataIndex(rtp.GetUlOffset(4));
+            ap.PointStack(rtp, 8);
         }
         private void ZzPointLocalAddr5W(){ /* ;DUMMYWORD */
                 /* Mコード=0x003F */
             //AccessPointer.s = (SHORT *)RstackPointer + 5;
-            ap.ResetDataIndex(rtp.GetUlOffset(5));
+            ap.PointStack(rtp, 10);
         }
         private void ZzPointLocalAddr6W(){ /* ;DUMMYWORD */
                 /* Mコード=0x0040 */
             //AccessPointer.s = (SHORT *)RstackPointer + 6;
-            ap.ResetDataIndex(rtp.GetUlOffset(6));
+            ap.PointStack(rtp, 12);
         }
         private void ZzPointLocalAddr7W(){ /* ;DUMMYWORD */
                 /* Mコード=0x0041 */
             //AccessPointer.s = (SHORT *)RstackPointer + 7;
-            ap.ResetDataIndex(rtp.GetUlOffset(7));
+            ap.PointStack(rtp, 14);
         }
         private void ZzPointLocalAddr(){  /* ;WORD $$POINT_LOCALADDR */
                 /* Mコード=0x0042 */
             //AccessPointer.b = (UCHAR *)RstackPointer + FETCH_MCODE;
-            ap.ResetDataIndex(rtp.GetUlOffset(mp.FetchMcode()));
+            ap.PointStack(rtp, mp.FetchMcode());
         }
         /*---------------------  局所集合のセットアップ  ------------------*/
         private void ZzPushLocalAddrPlusSize(){     /* ;WORD  $$PUSH_LOCALADDR+SIZE */
@@ -495,24 +508,25 @@ namespace Mind8Kernel
                 /* Mコード=0x0048 */
             // PUSH_L( AccessPointer.l[0] );           /* push low  32bit  */
             // PUSH_L( AccessPointer.l[1] );           /* push high 32bit */
-            dtp.PushUl(ap.GetUl());
-            dtp.PushUl(ap.GetUl());  
+            ulong value = ap.GetUll();
+            dtp.PushUl((uint)value);
+            dtp.PushUl((uint)(value >> 32));
         }
         private void ZzPushQvar(){   /* ;WORD $$PUSH_QVAR */
                 /* Mコード=0x0049 */
             // PUSH_L( AccessPointer.l[1] );           /* push high 32bit */
             // PUSH_L( AccessPointer.l[0] );           /* push low  32bit  */
-            uint low32 = ap.GetUl();
-            dtp.PushUl(ap.GetUl());
-            dtp.PushUl(low32);  
+            ulong value = ap.GetUll();
+            dtp.PushUl((uint)(value >> 32));
+            dtp.PushUl((uint)value);
         }
         private void ZzPushSvar(){   /* ;WORD $$PUSH_SVAR */
                 /* Mコード=0x004A */
             // PUSH_A( AccessPointer.u[1] );           /* push address */
             // PUSH_C( AccessPointer.u[0] );           /* push length  */
-            uint low32 = ap.GetUl();
-            dtp.PushUl(ap.GetUl());
-            dtp.PushUl(low32);  
+            ulong value = ap.GetUll();
+            dtp.PushUl((uint)(value >> 32));
+            dtp.PushUl((uint)value);
         }
         private void ZzPushJvar(){
                 /* Mコード=0x004B */
@@ -563,8 +577,9 @@ namespace Mind8Kernel
             // PUSH_L( varAddr[0] );                   /* push low  double */
             // PUSH_L( varAddr[1] );                   /* push high double */
             ap.ResetDataIndex(mp.FetchMcodeInt());
-            dtp.PushUl(ap.GetUl());
-            dtp.PushUl(ap.GetUl());
+            ulong value = ap.GetUll();
+            dtp.PushUl((uint)value);
+            dtp.PushUl((uint)(value >> 32));
         }
         private void ZzReadQvar(){
                 /* Mコード=0x0050 */
@@ -573,9 +588,9 @@ namespace Mind8Kernel
             // PUSH_L( varAddr[1] );                   /* push high double */
             // PUSH_L( varAddr[0] );                   /* push low  double */
             ap.ResetDataIndex(mp.FetchMcodeInt());
-            uint var=ap.GetUl();
-            dtp.PushUl(ap.GetUl());
-            dtp.PushUl(var);
+            ulong value = ap.GetUll();
+            dtp.PushUl((uint)(value >> 32));
+            dtp.PushUl((uint)value);
         }
         private void ZzReadSvar(){
                 /* Mコード=0x0051 */
@@ -584,9 +599,9 @@ namespace Mind8Kernel
             // PUSH_A( varAddr[1] );                   /* push address */
             // PUSH_C( varAddr[0] );                   /* push length  */
             ap.ResetDataIndex(mp.FetchMcodeInt());
-            uint length=ap.GetUl();
-            dtp.PushUl(ap.GetUl());
-            dtp.PushUl(length);
+            ulong value = ap.GetUll();
+            dtp.PushUl((uint)(value >> 32));
+            dtp.PushUl((uint)value);
         }
         private void ZzReadJvar(){
                 /* Mコード=0x0052 */
@@ -598,10 +613,15 @@ namespace Mind8Kernel
             // margin = *varAddr++;
             // PUSH_A( (UCHAR *)varAddr + margin );    /* push address */
             // PUSH_C( length );                       /* push length  */
-            ap.ResetDataIndex(mp.FetchMcodeInt());
-            uint length=ap.GetUl();
-            uint margin=ap.GetUl();
-            dtp.PushUl(ap.GetUl() + margin);
+            uint offset = mp.FetchMcodeInt();
+            ap.ResetDataIndex(offset);
+            ulong header = ap.GetUll();
+            uint length = (uint)header;
+            uint margin = (uint)(header >> 32);
+            uint address = checked(offset + 8 + margin);
+            if ((address & DataAddressBit) != 0)
+                throw new ArgumentOutOfRangeException(nameof(address), "String data address exceeds the supported range.");
+            dtp.PushUl(DataAddressBit | address);
             dtp.PushUl(length);
         }
         /*---------------------  局所変数の直接読み出し  ---------------*/
@@ -613,7 +633,7 @@ namespace Mind8Kernel
             // PUSH_F( 0 );
             //rtp.MoveStackPointer(mp.FetchMcode());//returnスタックのインデックスをMCode領域の値で移動
             //dtp.PushUl(rtp.PopUb());
-            dtp.PushUl((byte)rtp.GetUlOffset(mp.FetchMcode()));
+            dtp.PushUl(rtp.ReadLocal(mp.FetchMcode(), 1));
             dtp.PushUl(0);
         }
         private void ZzReadWvarLocal(){
@@ -624,7 +644,7 @@ namespace Mind8Kernel
             // PUSH_F( 0 );
             //rtp.MoveStackPointer(mp.FetchMcode());//returnスタックのインデックスをMCode領域の値で移動
             //dtp.PushUl(rtp.PopUs());
-            dtp.PushUl((ushort)rtp.GetUlOffset(mp.FetchMcode()));
+            dtp.PushUl(rtp.ReadLocal(mp.FetchMcode(), 2));
             dtp.PushUl(0);
         
         }
@@ -636,7 +656,7 @@ namespace Mind8Kernel
             // PUSH_F( 0 );            
             //rtp.MoveStackPointer(mp.FetchMcode());//returnスタックのインデックスをMCode領域の値で移動
             //int point =(int)rtp.GetUb() + mp.FetchMcode();//returnスタックポインタの指すバイト値とMCode領域の値を加算
-            dtp.PushUl(rtp.GetUlOffset(mp.FetchMcode()));
+            dtp.PushUl(rtp.ReadLocal(mp.FetchMcode(), 4));
             //dtp.PushUl(rtp.PopUl());
             dtp.PushUl(0);
 
@@ -647,9 +667,9 @@ namespace Mind8Kernel
             // varAddr = (ULONG *)((UCHAR *)RstackPointer + FETCH_MCODE);
             // PUSH_L( varAddr[0] );                   /* push low  double */
             // PUSH_L( varAddr[1] );                   /* push high double */
-            rtp.MoveStackPointer(mp.FetchMcode());//returnスタックのインデックスをMCode領域の値で移動
-            dtp.PushUl(rtp.PopUl());
-            dtp.PushUl(rtp.PopUl());
+            int offset = mp.FetchMcode();
+            dtp.PushUl(rtp.ReadLocal(offset, 4));
+            dtp.PushUl(rtp.ReadLocal(offset + 4, 4));
         }
         private void ZzReadQvarLocal(){
                 /* Mコード=0x0057 */
@@ -657,10 +677,9 @@ namespace Mind8Kernel
             // varAddr = (ULONG *)((UCHAR *)RstackPointer + FETCH_MCODE);
             // PUSH_L( varAddr[1] );                   /* push high double */
             // PUSH_L( varAddr[0] );                   /* push low  double *
-            rtp.MoveStackPointer(mp.FetchMcode());//returnスタックのインデックスをMCode領域の値で移動
-            uint ul=rtp.PopUl();
-            dtp.PushUl(rtp.PopUl());
-            dtp.PushUl(ul);
+            int offset = mp.FetchMcode();
+            dtp.PushUl(rtp.ReadLocal(offset + 4, 4));
+            dtp.PushUl(rtp.ReadLocal(offset, 4));
         }
         private void ZzReadSvarLocal(){
                 /* Mコード=0x0058 */
@@ -668,10 +687,9 @@ namespace Mind8Kernel
             // varAddr = (ULONG *)((UCHAR *)RstackPointer + FETCH_MCODE);
             // PUSH_A( varAddr[1] );                   /* push address */
             // PUSH_C( varAddr[0] );                   /* push length  */
-            rtp.MoveStackPointer(mp.FetchMcode());//returnスタックのインデックスをMCode領域の値で移動
-            uint ul=rtp.PopUl();
-            dtp.PushUl(rtp.PopUl());
-            dtp.PushUl(ul);
+            int offset = mp.FetchMcode();
+            dtp.PushUl(rtp.ReadLocal(offset + 4, 4));
+            dtp.PushUl(rtp.ReadLocal(offset, 4));
         }
         private void ZzReadJvarLocal(){
                 /* Mコード=0x0059 */
@@ -829,7 +847,7 @@ namespace Mind8Kernel
             //rtp.MoveStackPointer(mp.FetchMcode());//returnスタックのインデックスをMCode領域の値で移動
             dtp.PopUl();//≒DROP Dataスタックから取り出して捨てる
             //rtp.PushUb((byte)dtp.PopUl());
-            rtp.SetUsOffset((byte)dtp.PopUl(),mp.FetchMcode());
+            rtp.WriteLocal(mp.FetchMcode(), dtp.PopUl(), 1);
         }
         private void ZzWriteWvarLocal(){  /* ;WORD $$WRITE_WVAR_LOCAL */
                 /* Mコード=0x006A */
@@ -845,7 +863,7 @@ namespace Mind8Kernel
             //rtp.MoveStackPointer(mp.FetchMcode());//returnスタックのインデックスをMCode領域の値で移動
             dtp.PopUl();//≒DROP Dataスタックから取り出して捨てる
             //rtp.PushUs((ushort)dtp.PopUl());
-            rtp.SetUsOffset((ushort)dtp.PopUl(),mp.FetchMcode());
+            rtp.WriteLocal(mp.FetchMcode(), dtp.PopUl(), 2);
         }
         private void ZzWriteDvarLocal(){ /* ;WORD $$WRITE_DVAR_LOCAL */
                 /* Mコード=0x006B */
@@ -857,7 +875,7 @@ namespace Mind8Kernel
             //rtp.MoveStackPointer(mp.FetchMcode());//returnスタックのインデックスをMCode領域の値で移動
             //int point =(int)rtp.GetUb() + mp.FetchMcode();//returnスタックポインタの指すバイト値とMCode領域の値を加算
             dtp.PopUl();//≒DROP Dataスタックから取り出して捨てる
-            rtp.SetUlOffset(dtp.PopUl(),mp.FetchMcode());
+            rtp.WriteLocal(mp.FetchMcode(), dtp.PopUl(), 4);
             //rtp.MoveStackPointer(mp.FetchMcode());//returnスタックのインデックスをMCode領域の値で移動
             //dtp.PopUl();//≒DROP Dataスタックから取り出して捨てる
             //rtp.PushUl(dtp.PopUl());
@@ -870,9 +888,10 @@ namespace Mind8Kernel
             // varAddr = (ULONG *)((UCHAR *)RstackPointer + FETCH_MCODE);
             // varAddr[1] = POP_L;
             // varAddr[0] = POP_L;
-            rtp.MoveStackPointer(mp.FetchMcode());//returnスタックのインデックスをMCode領域の値で移動
-            uint var0=dtp.PopUl();//varAddr[0]用をデータスタックよりPOPしておく
-            rtp.SetUl2var(dtp.PopUl(),var0);
+            int offset = mp.FetchMcode();
+            uint high = dtp.PopUl();
+            rtp.WriteLocal(offset, dtp.PopUl(), 4);
+            rtp.WriteLocal(offset + 4, high, 4);
         }
         private void ZzWriteQvarLocal(){ /* ;WORD $$WRITE_QVAR_LOCAL */
                 /* Mコード=0x006D */
@@ -880,8 +899,9 @@ namespace Mind8Kernel
             // varAddr = (ULONG *)((UCHAR *)RstackPointer + FETCH_MCODE);
             // varAddr[0] = POP_L;
             // varAddr[1] = POP_L;
-            rtp.MoveStackPointer(mp.FetchMcode());//returnスタックのインデックスをMCode領域の値で移動
-            rtp.SetUl2var(dtp.PopUl(),dtp.PopUl());
+            int offset = mp.FetchMcode();
+            rtp.WriteLocal(offset, dtp.PopUl(), 4);
+            rtp.WriteLocal(offset + 4, dtp.PopUl(), 4);
         }
         private void ZzWriteSvarLocal(){ /* ;WORD $$WRITE_SVAR_LOCAL */
                 /* Mコード=0x006E */
@@ -892,8 +912,9 @@ namespace Mind8Kernel
 
             // #define  POP_A                ((UCHAR *)(*DstackPointer++))
             // #define  POP_C                POP_U
-            rtp.MoveStackPointer(mp.FetchMcode());//returnスタックのインデックスをMCode領域の値で移動
-            rtp.SetUl2var(dtp.PopUl(),dtp.PopUl());
+            int offset = mp.FetchMcode();
+            rtp.WriteLocal(offset, dtp.PopUl(), 4);
+            rtp.WriteLocal(offset + 4, dtp.PopUl(), 4);
         }
 
         /*---------------------  変数のクリア  --------------------*/
@@ -936,7 +957,12 @@ namespace Mind8Kernel
             // length  = (size_t)POP_C;
             // address = (void *)POP_A;
             // memset( address, 0, length );
-            throw new UnDefined(0);
+            uint length = dtp.PopUl();
+            uint address = dtp.PopUl();
+            if ((address & DataAddressBit) != 0)
+                ap.ClearBytes(address & ~DataAddressBit, length);
+            else
+                mp.ClearBytes(address, length);
         }
 
         /*--------------------- 変数を一つ増加  -------------------------*/

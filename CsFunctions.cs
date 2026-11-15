@@ -6,7 +6,7 @@ namespace Mind8Kernel
 {
     public partial class Dispatcher
     {
-        private readonly int maxCountCsFunctions = 1 + 0x026D;
+        private readonly int maxCountCsFunctions = 1 + 0x02CE;
         /// <summary>C#の関数配列を準備する</summary>
         /// <param name="csFunc">C#関数配列の参照</param>
         private void SetupCsFunctions(ref Action[] csFuncs){
@@ -198,6 +198,9 @@ namespace Mind8Kernel
             csFuncs[0x00BF]=MojiretuJyouhouGousei;//
         /*--------------------- 表示系  --------------------------------*/
             csFuncs[0x00C1]=ZzHyouji;//
+            csFuncs[0x00C4]=ZzKaigyou;
+            csFuncs[0x00C9]=ZzBaiseidoHyouji;
+            csFuncs[0x00D6]=ZzPointQarray;
             
         /*--------------------- ならば～つぎに  -------------------------*/
             csFuncs[0x00EC]=Zzif;//
@@ -206,6 +209,8 @@ namespace Mind8Kernel
             csFuncs[0x00EE]=ZzDo;//
 
         /*--------------------- 数値計算  -------------------------------*/
+            csFuncs[0x00FD]=ZzKatu;
+            csFuncs[0x0100]=IsFalse;
             csFuncs[0x0101]=HitotuKuwae;//
             csFuncs[0x0102]=FutatuKuwae;//
             csFuncs[0x0103]=HitotuHiki;//
@@ -216,6 +221,11 @@ namespace Mind8Kernel
             csFuncs[0x0108]=ZzSubWimm;//
             csFuncs[0x0109]=ZzSubDimm;//
             csFuncs[0x010A]=Hiku;//
+            csFuncs[0x010C]=Waru;
+            csFuncs[0x0110]=Tiisai;
+            csFuncs[0x0112]=Ookii;
+            csFuncs[0x0114]=Hitosii;
+            csFuncs[0x011E]=Koukan;
             // csFuncs[0x010B]=HitotuHiki;//
             // csFuncs[0x010C]=FutatuHiki;//
             csFuncs[0x0122]=Sute;//
@@ -223,6 +233,7 @@ namespace Mind8Kernel
             csFuncs[0x0124]=FutatuSute;//
             // csFuncs[0x0125]=FutatuHiki;//   
         /*--------------------- 文字列実体変数への格納  ------------------*/
+            csFuncs[0x015F]=IsKuretu;
             csFuncs[0x0164]=ZzPopJvar;//
             csFuncs[0x0165]=ZzWriteJvar;//
             csFuncs[0x0166]=ZzWriteJvarLocal;//
@@ -230,13 +241,24 @@ namespace Mind8Kernel
         /*----------- その他、文字列実体情報によるオペレーション  ---------*/
             csFuncs[0x016E]=ZzClearXvar;//
         /*--------------------- 一バイト検索  ---------------------------*/    
+            csFuncs[0x01B7]=MigiKiridasi;
+            csFuncs[0x01D2]=UtanMoji;
+            csFuncs[0x01D5]=Toridasi;
             csFuncs[0x01D7]=ItiBaitoKensaku;
             csFuncs[0x01D8]=GyakuItiBaitoKensaku;
+            csFuncs[0x01DD]=HitosiiMojiretu;
+            csFuncs[0x01EC]=SizeHenko;
         /*--------------------- 私のプログラム名  -----------------------*/
             csFuncs[0x0261]=CmcodeFullFilename;//
             csFuncs[0x0264]=GetArgC;//
+            csFuncs[0x0268]=EnableCtrlCSignal;
         /*--------------------- 標準入出力  -----------------------------*/
             csFuncs[0x026D]=OutputDevice;//
+            csFuncs[0x0296]=BinaryMode;
+            csFuncs[0x0297]=TextMode;
+            csFuncs[0x0298]=SetFileMode;
+            csFuncs[0x02CD]=LowSecurityMode;
+            csFuncs[0x02CE]=HighSecurityMode;
         }
 
     }

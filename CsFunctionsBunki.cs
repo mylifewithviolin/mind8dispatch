@@ -3,9 +3,9 @@ namespace Mind8Kernel
     public partial class Dispatcher
     {
 
-        /*--------------------- ‚È‚ç‚Î`‚Â‚¬‚É  -------------------------*/    
+        /*--------------------- ãªã‚‰ã°ï½ã¤ãã«  -------------------------*/    
         private void Zzif(){ /* ;WORD $$IF */
-                /* MƒR[ƒh=0x00EC */
+                /* Mã‚³ãƒ¼ãƒ‰=0x00EC */
             // #define  DROP_L               DstackPointer++
             // #define  DROP_F               DROP_L
             // #define  POP_L                (*DstackPointer++)
@@ -21,7 +21,7 @@ namespace Mind8Kernel
             //#define  SKIP_MCODE(bytes)  McodePointer.b+=(bytes)
             //#define  READ_MCODE_SHORT   (*McodePointer.s)
             // }
-            dtp.PopUl();//àDROP DataƒXƒ^ƒbƒN‚©‚çæ‚èo‚µ‚ÄÌ‚Ä‚é
+            dtp.PopUl();//â‰’DROP Dataã‚¹ã‚¿ãƒƒã‚¯ã‹ã‚‰å–ã‚Šå‡ºã—ã¦æ¨ã¦ã‚‹
             if(dtp.PopUl()>=1){
                 mp.MoveMcodeIndex(1);
             }else{
@@ -29,7 +29,7 @@ namespace Mind8Kernel
             }
         }
         private void ZzNotif(){ /* ;WORD $$-IF */
-                /* MƒR[ƒh=0x00ED */
+                /* Mã‚³ãƒ¼ãƒ‰=0x00ED */
             // if ( POP_L_OF_Q )
             // {
             //         SKIP_MCODE( READ_MCODE_SHORT );
@@ -42,7 +42,7 @@ namespace Mind8Kernel
             // }
             //uint point=dtp.GetCurrentStackPointer();
             //for(uint i=point +5;i>point;i--)Console.WriteLine(" {0,8:d} {1,8:d}",i,dtp.dataArray[i*4]);
-            dtp.PopUl();//àDROP DataƒXƒ^ƒbƒN‚©‚çæ‚èo‚µ‚ÄÌ‚Ä‚é
+            dtp.PopUl();//â‰’DROP Dataã‚¹ã‚¿ãƒƒã‚¯ã‹ã‚‰å–ã‚Šå‡ºã—ã¦æ¨ã¦ã‚‹
             if(dtp.PopUl()>=1){
                 //mp.MoveMcodeIndexByByte(mp.ReadMcodeShort());
                 short mc=mp.ReadMcodeShort();
@@ -52,29 +52,29 @@ namespace Mind8Kernel
             }
         }
 
-        /*------------------- ‰ñ”w’è`ŒJ‚è•Ô‚µ  ------------------------*/
+        /*------------------- å›æ•°æŒ‡å®šï½ç¹°ã‚Šè¿”ã—  ------------------------*/
 
         private void ZzDo(){   /* ;WORD $$DO */
 
-                    /* MƒR[ƒh=0x00ED */
+                    /* Mã‚³ãƒ¼ãƒ‰=0x00ED */
             //         ULONG   count;
-            // /* (value ¨ .) */
-            // /*-[Mcode¶¬]-----------------*/
-            // /*   +0(W): relative address    /   ©’PˆÊ‚ÍƒoƒCƒg”(•„†•t‚«) */
-            // /*         ($$LOOP‚ÌŸ‚Ö‚Ìjmp) */
+            // /* (value â†’ .) */
+            // /*-[Mcodeç”Ÿæˆ]-----------------*/
+            // /*   +0(W): relative address    /   â†å˜ä½ã¯ãƒã‚¤ãƒˆæ•°(ç¬¦å·ä»˜ã) */
+            // /*         ($$LOOPã®æ¬¡ã¸ã®jmp) */
             // /*-----------------------------*/
-            // count = POP_L_OF_Q;                     /* ƒJƒEƒ“ƒg‚ğpop‚·‚é */
-            // if ( !count )                           /* ƒJƒEƒ“ƒg=0 ? */
+            // count = POP_L_OF_Q;                     /* ã‚«ã‚¦ãƒ³ãƒˆã‚’popã™ã‚‹ */
+            // if ( !count )                           /* ã‚«ã‚¦ãƒ³ãƒˆ=0 ? */
             // {
-            //         SKIP_MCODE( READ_MCODE_SHORT ); /* $$LOOP‚ÌŸ‚ÌˆÊ’u‚É”ò‚Ô */
+            //         SKIP_MCODE( READ_MCODE_SHORT ); /* $$LOOPã®æ¬¡ã®ä½ç½®ã«é£›ã¶ */
             // }
             // else
             // {
-            //         PUSH_R( count );                /* ƒJƒEƒ“ƒg‚ğÏ‚Ş(long) */
-            //         PUSH_R( 1 );                    /* ‰Šú’l(1)‚ğÏ‚Ş(long) */
-            //         SKIP_MCODE_1WORD;               /* $$LOOP‚Ö‚Ì”ò‚Ñæ‚ğskip */
+            //         PUSH_R( count );                /* ã‚«ã‚¦ãƒ³ãƒˆã‚’ç©ã‚€(long) */
+            //         PUSH_R( 1 );                    /* åˆæœŸå€¤(1)ã‚’ç©ã‚€(long) */
+            //         SKIP_MCODE_1WORD;               /* $$LOOPã¸ã®é£›ã³å…ˆã‚’skip */
             // }
-            dtp.PopUl();//àDROP DataƒXƒ^ƒbƒN‚©‚çæ‚èo‚µ‚ÄÌ‚Ä‚é 
+            dtp.PopUl();//â‰’DROP Dataã‚¹ã‚¿ãƒƒã‚¯ã‹ã‚‰å–ã‚Šå‡ºã—ã¦æ¨ã¦ã‚‹ 
             uint count=dtp.PopUl();       
             if(count==0){
                 //mp.MoveMcodeIndexByByte(mp.ReadMcodeShort());

@@ -1,9 +1,42 @@
 using System.Text;
+using System.Runtime.InteropServices;
 
 namespace Mind8Kernel
 {
     public partial class Dispatcher
     {
+        private bool UseLowSecurity { get; set; }
+        private void LowSecurityMode() => UseLowSecurity = true;
+        private void HighSecurityMode() => UseLowSecurity = false;
+
+        private void EnableCtrlCSignal(){
+            if(!Console.IsInputRedirected){
+                Console.TreatControlCAsInput = false;
+            }
+        }
+        private void BinaryMode(){
+            dtp.PushUl(0x8000);
+            dtp.PushUl(0);
+        }
+        private void TextMode(){
+            dtp.PushUl(0x4000);
+            dtp.PushUl(0);
+        }
+        [DllImport("ucrtbase.dll", EntryPoint = "_setmode", CallingConvention = CallingConvention.Cdecl)]
+        private static extern int SetNativeFileMode(int handle, int mode);
+
+        private void SetFileMode(){
+            dtp.PopUl();
+            int mode = (int)dtp.PopUl();
+            dtp.PopUl();
+            int handle = (int)dtp.PopUl();
+            if(!OperatingSystem.IsWindows()){
+                throw new PlatformNotSupportedException("CRT file modes require Windows.");
+            }
+            if(SetNativeFileMode(handle, mode) == -1){
+                throw new IOException($"Cannot set file mode 0x{mode:X} for handle {handle}.");
+            }
+        }
         /*--------------------- ���̃v���O������  -----------------------*/
         private void CmcodeFullFilename(){		/* ;WORD c_mcodeFullFilename */
                 /* M�R�[�h=0x0261 */
@@ -43,7 +76,7 @@ namespace Mind8Kernel
             uint filehandle=dtp.PopUl();//�̂Ă�
             uint length=dtp.PopUl();
             uint index=dtp.PopUl();              
-            byte[] chars=mp.GetUb(index,length);
+            byte[] chars=ReadStringBytes(index,length);
             string text = Encoding.GetEncoding("shift_jis").GetString(chars);
             Console.Write(text);
         }

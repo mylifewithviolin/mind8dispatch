@@ -2,113 +2,174 @@ namespace Mind8Kernel
 {
     public partial class Dispatcher
     {
-		/*--------------------- ”’lŒvZ  -------------------------------*/
-		private void  HitotuKuwae()		/* ;WORD ˆê‚Â‰Á‚¦ .N */
+        private void ZzKatu()
+        {
+            dtp.PopUl();
+            uint right = dtp.PopUl();
+            dtp.PopUl();
+            uint left = dtp.PopUl();
+            dtp.PushUl(left != 0 && right != 0 ? 1u : 0u);
+            dtp.PushUl(0);
+        }
+
+        private void IsFalse() => dtp.SetUlOffset(dtp.GetUlOffset(1) == 0 ? 1u : 0u, 1);
+
+        private void Tiisai()
+        {
+            dtp.PopUl();
+            int right = unchecked((int)dtp.PopUl());
+            dtp.PopUl();
+            int left = unchecked((int)dtp.PopUl());
+            dtp.PushUl(left < right ? 1u : 0u);
+            dtp.PushUl(0);
+        }
+
+        private void Ookii()
+        {
+            dtp.PopUl();
+            int right = unchecked((int)dtp.PopUl());
+            dtp.PopUl();
+            int left = unchecked((int)dtp.PopUl());
+            dtp.PushUl(left > right ? 1u : 0u);
+            dtp.PushUl(0);
+        }
+
+        private void Hitosii()
+        {
+            dtp.PopUl();
+            uint right = dtp.PopUl();
+            dtp.PopUl();
+            uint left = dtp.PopUl();
+            dtp.PushUl(left == right ? 1u : 0u);
+            dtp.PushUl(0);
+        }
+
+        private void Koukan()
+        {
+            uint secondHigh = dtp.PopUl();
+            uint secondLow = dtp.PopUl();
+            uint firstHigh = dtp.PopUl();
+            uint firstLow = dtp.PopUl();
+            dtp.PushUl(secondLow);
+            dtp.PushUl(secondHigh);
+            dtp.PushUl(firstLow);
+            dtp.PushUl(firstHigh);
+        }
+
+		/*--------------------- æ•°å€¤è¨ˆç®—  -------------------------------*/
+		private void  HitotuKuwae()		/* ;WORD ä¸€ã¤åŠ ãˆ .N */
 		{
-				/* MƒR[ƒh=0x0101 */
+				/* Mã‚³ãƒ¼ãƒ‰=0x0101 */
 			//L_OF_Q += 1L;
 			//#define  L_OF_Q		      READ_L_OF_Q
 			//#define  READ_L_OF_Q          (DstackPointer[1])
 			dtp.SetUlOffset(dtp.GetUlOffset(1)+1,1);
 		}
 
-		private void   FutatuKuwae()		/* ;WORD “ñ‚Â‰Á‚¦ */
+		private void   FutatuKuwae()		/* ;WORD äºŒã¤åŠ ãˆ */
 		{
-				/* MƒR[ƒh=0x0102 */
+				/* Mã‚³ãƒ¼ãƒ‰=0x0102 */
 			//L_OF_Q += 2L;
 			dtp.SetUlOffset(dtp.GetUlOffset(1)+2,1);
 		}
 
-		private void HitotuHiki()		/* ;WORD ˆê‚Âˆø‚« .N */
+		private void HitotuHiki()		/* ;WORD ä¸€ã¤å¼•ã .N */
 		{
-				/* MƒR[ƒh=0x0103 */
+				/* Mã‚³ãƒ¼ãƒ‰=0x0103 */
 			//L_OF_Q -= 1L;
 			dtp.SetUlOffset(dtp.GetUlOffset(1)-1,1);
 		}
 
-		private void FutatuHiki()		/* ;WORD “ñ‚Âˆø‚« .N */
+		private void FutatuHiki()		/* ;WORD äºŒã¤å¼•ã .N */
 		{
-				/* MƒR[ƒh=0x0104 */
+				/* Mã‚³ãƒ¼ãƒ‰=0x0104 */
 			//L_OF_Q -= 2L;
 			//#define  L_OF_Q		      READ_L_OF_Q
 			//#define  READ_L_OF_Q          (DstackPointer[1])
 			dtp.SetUlOffset(dtp.GetUlOffset(1)-2,1);
 		}
 
-		/* [n(16)‚ğ@‰Á‚¦]‚ÌƒRƒ“ƒpƒCƒŠƒ“ƒOƒ[ƒh */
+		/* [n(16)ã‚’ã€€åŠ ãˆ]ã®ã‚³ãƒ³ãƒ‘ã‚¤ãƒªãƒ³ã‚°ãƒ¯ãƒ¼ãƒ‰ */
 		private void   ZzAddWimm()         	/* ;WORD $$ADD_WIMM */
 		{
-				/* MƒR[ƒh=0x0105 */
+				/* Mã‚³ãƒ¼ãƒ‰=0x0105 */
 			// L_OF_Q += FETCH_MCODE;
-			dtp.SetUl(dtp.GetUlOffset(1)+mp.FetchMcode());
+			dtp.SetUlOffset(dtp.GetUlOffset(1)+mp.FetchMcode(), 1);
 		}
 
-		/* [n(32)‚ğ@‰Á‚¦]‚ÌƒRƒ“ƒpƒCƒŠƒ“ƒOƒ[ƒh */
+		/* [n(32)ã‚’ã€€åŠ ãˆ]ã®ã‚³ãƒ³ãƒ‘ã‚¤ãƒªãƒ³ã‚°ãƒ¯ãƒ¼ãƒ‰ */
 		private void  ZzAddDimm()         	/* ;WORD $$ADD_DIMM */
 		{
-				/* MƒR[ƒh=0x0106 */
+				/* Mã‚³ãƒ¼ãƒ‰=0x0106 */
 			// L_OF_Q += FETCH_MCODE_LONG;
-			dtp.SetUl(dtp.GetUlOffset(1)+mp.FetchMcodeInt());
+			dtp.SetUlOffset(dtp.GetUlOffset(1)+mp.FetchMcodeInt(), 1);
 		}
 
-		/* [‰Á‚¦]‚ÌƒRƒ“ƒpƒCƒŠƒ“ƒOƒ[ƒh */
-		private void	Kuwae()		/* ;WORD ‰Á‚¦       ¦‘®«‚Ígensym‚É‚Ä¦@*/
+		/* [åŠ ãˆ]ã®ã‚³ãƒ³ãƒ‘ã‚¤ãƒªãƒ³ã‚°ãƒ¯ãƒ¼ãƒ‰ */
+		private void	Kuwae()		/* ;WORD åŠ ãˆ       â€»å±æ€§ã¯gensymã«ã¦â€»ã€€*/
 		{
-				/* MƒR[ƒh=0x0107 */
+				/* Mã‚³ãƒ¼ãƒ‰=0x0107 */
 				// LONG  data2;
 				// data2  = POP_L_OF_Q;
 				// L_OF_Q += data2;
 				// #define  POP_L_OF_Q           (DROP_F,POP_L)
 				//#define  L_OF_Q		      READ_L_OF_Q
 				//#define  READ_L_OF_Q          (DstackPointer[1])
-	        	dtp.PopUl();//àDROP DataƒXƒ^ƒbƒN‚©‚çæ‚èo‚µ‚ÄÌ‚Ä‚é
+	        	dtp.PopUl();//â‰’DROP Dataã‚¹ã‚¿ãƒƒã‚¯ã‹ã‚‰å–ã‚Šå‡ºã—ã¦æ¨ã¦ã‚‹
 				int data2=(int)dtp.PopUl();
 				dtp.SetUlOffset((uint)(dtp.GetUlOffset(1)+data2),1);
 
 		}
 
-		/* [n(16)‚ğ@ˆø‚­]‚ÌƒRƒ“ƒpƒCƒŠƒ“ƒOƒ[ƒh */
+		/* [n(16)ã‚’ã€€å¼•ã]ã®ã‚³ãƒ³ãƒ‘ã‚¤ãƒªãƒ³ã‚°ãƒ¯ãƒ¼ãƒ‰ */
 		private void   ZzSubWimm()         	/* ;WORD $$SUB_WIMM */
 		{
-				/* MƒR[ƒh=0x0108 */
+				/* Mã‚³ãƒ¼ãƒ‰=0x0108 */
 			//L_OF_Q -= FETCH_MCODE;
 			dtp.SetUl(dtp.GetUlOffset(1)-mp.FetchMcode());
 		}
-		/* [n(32)‚ğ@ˆø‚­]‚ÌƒRƒ“ƒpƒCƒŠƒ“ƒOƒ[ƒh */
+		/* [n(32)ã‚’ã€€å¼•ã]ã®ã‚³ãƒ³ãƒ‘ã‚¤ãƒªãƒ³ã‚°ãƒ¯ãƒ¼ãƒ‰ */
 		private void   ZzSubDimm()         	/* ;WORD $$SUB_DIMM */
 		{
-				/* MƒR[ƒh=0x0109 */
+				/* Mã‚³ãƒ¼ãƒ‰=0x0109 */
 			// L_OF_Q -= FETCH_MCODE_LONG;
-			dtp.SetUl(dtp.GetUlOffset(1)-mp.FetchMcodeInt());
+			dtp.SetUlOffset(dtp.GetUlOffset(1)-mp.FetchMcodeInt(), 1);
 
 		}
-		/* [ˆø‚­]‚ÌƒRƒ“ƒpƒCƒŠƒ“ƒOƒ[ƒh */
-		private void Hiku()		/* ;WORD ˆø‚­       ¦‘®«‚Ígensym‚É‚Ä¦@*/
+		/* [å¼•ã]ã®ã‚³ãƒ³ãƒ‘ã‚¤ãƒªãƒ³ã‚°ãƒ¯ãƒ¼ãƒ‰ */
+		private void Hiku()		/* ;WORD å¼•ã       â€»å±æ€§ã¯gensymã«ã¦â€»ã€€*/
 		{
-					/* MƒR[ƒh=0x010A */
+					/* Mã‚³ãƒ¼ãƒ‰=0x010A */
 			// LONG  data2;
 			// data2  = POP_L_OF_Q;
 			// L_OF_Q -= data2;
-			dtp.PopUl();//àDROP DataƒXƒ^ƒbƒN‚©‚çæ‚èo‚µ‚ÄÌ‚Ä‚é
+			dtp.PopUl();//â‰’DROP Dataã‚¹ã‚¿ãƒƒã‚¯ã‹ã‚‰å–ã‚Šå‡ºã—ã¦æ¨ã¦ã‚‹
 			int data2=(int)dtp.PopUl();
-			dtp.SetUl((uint)(dtp.GetUlOffset(1)-data2));
+			dtp.SetUlOffset((uint)(dtp.GetUlOffset(1)-data2), 1);
 		}
 
+        private void Waru()
+        {
+            dtp.PopUl();
+            int divisor = unchecked((int)dtp.PopUl());
+            int dividend = unchecked((int)dtp.GetUlOffset(1));
+            dtp.SetUlOffset(unchecked((uint)(dividend / divisor)), 1);
+        }
 
 
-		private void Sute()		/* ;WORD Ì‚Ä */
+		private void Sute()		/* ;WORD æ¨ã¦ */
 		{
-					/* MƒR[ƒh=0x0122 */
+					/* Mã‚³ãƒ¼ãƒ‰=0x0122 */
 			//	DROP_Q;
 			//#define  DROP_Q               DstackPointer+=2
 			dtp.MoveStackPointer(2);
 		}
 
-		private void NibannmeWoSute()	/* ;WORD “ñ”Ô–Ú‚ğÌ‚Ä */
+		private void NibannmeWoSute()	/* ;WORD äºŒç•ªç›®ã‚’æ¨ã¦ */
 		{
-					/* MƒR[ƒh=0x0123 */
-			/* (data1, data2 ¨ data2) */
-			/*  ª‚±‚ê‚ğÌ‚Ä‚é         */
+					/* Mã‚³ãƒ¼ãƒ‰=0x0123 */
+			/* (data1, data2 â†’ data2) */
+			/*  â†‘ã“ã‚Œã‚’æ¨ã¦ã‚‹         */
 			// 	ULONG  fraction2;
 			// 	ULONG  integer2;
 			// fraction2 = POP_F;
@@ -123,9 +184,9 @@ namespace Mind8Kernel
 
 		}
 
-		private void FutatuSute()		/* ;WORD “ñ‚ÂÌ‚Ä */
+		private void FutatuSute()		/* ;WORD äºŒã¤æ¨ã¦ */
 		{
-					/* MƒR[ƒh=0x0124 */
+					/* Mã‚³ãƒ¼ãƒ‰=0x0124 */
 				// DROP_Q;
 				// DROP_Q;
 				//#define  DROP_Q               DstackPointer+=2

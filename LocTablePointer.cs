@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 namespace Mind8Kernel
 {
-/// <summary>Locテーブルアクセスポインタ</summary>
+/// <summary>Loc繝�繝ｼ繝悶Ν繧｢繧ｯ繧ｻ繧ｹ繝昴う繝ｳ繧ｿ</summary>
 public class LocTablePointer{
         private byte[] locArray =[];
         public void SetupLocArray(byte[] locTable){
