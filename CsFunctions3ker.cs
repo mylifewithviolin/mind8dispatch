@@ -55,7 +55,25 @@ namespace Mind8Kernel
             /* M�R�[�h=0x0264 */
             /* (. ���@argc) */
             //PUSH_Q( Argc, 0 );
-            dtp.PushUl((uint)argc);//�b��
+            dtp.PushUl((uint)argumentAddresses.Length);
+            dtp.PushUl(0);
+        }
+        private void SetupArguments(string[] arguments)
+        {
+            string[] argv = [Environment.GetCommandLineArgs()[0],
+                Path.GetFullPath(ResolveMcodeFilename(mcodefilename)), ..arguments];
+            argumentAddresses = new uint[argv.Length];
+            for (int i = 0; i < argv.Length; i++)
+                argumentAddresses[i] = mp.AppendBytes(Encoding.GetEncoding("shift_jis").GetBytes(argv[i] + '\0'));
+        }
+
+        private void GetArgN()
+        {
+            dtp.PopUl();
+            uint index = dtp.PopUl();
+            if (index >= argumentAddresses.Length)
+                throw new ArgumentOutOfRangeException(nameof(index), "Argument index is outside argc.");
+            dtp.PushUl(argumentAddresses[index]);
             dtp.PushUl(0);
         }
         /*--------------------- �W�����o��  -----------------------------*/
@@ -73,12 +91,18 @@ namespace Mind8Kernel
             // string = POP_A;
             // write( filehandle, string, length );	/* �G���[�͌��Ȃ� */
             dtp.PopUl();
-            uint filehandle=dtp.PopUl();//�̂Ă�
+            uint filehandle=dtp.PopUl();
             uint length=dtp.PopUl();
             uint index=dtp.PopUl();              
             byte[] chars=ReadStringBytes(index,length);
             string text = Encoding.GetEncoding("shift_jis").GetString(chars);
-            Console.Write(text);
+            TextWriter writer = filehandle switch
+            {
+                1 => Console.Out,
+                2 => Console.Error,
+                _ => throw new NotSupportedException($"Output handle {filehandle} is not supported.")
+            };
+            writer.Write(text);
         }
 
     }

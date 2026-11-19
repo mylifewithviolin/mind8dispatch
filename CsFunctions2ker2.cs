@@ -55,6 +55,31 @@ namespace Mind8Kernel
             dtp.PushUl(0);
         }
 
+        private void ItiMojiMigiKiridasi()
+        {
+            ulong info = ap.GetUll();
+            uint length = (uint)info;
+            uint address = (uint)(info >> 32);
+            byte[] content = ReadStringBytes(address, length);
+            uint character = 0;
+            if (content.Length > 0)
+            {
+                int width = LastCharacterWidth(content, content.Length);
+                character = content[^1];
+                if (width == 2) character |= (uint)content[^2] << 8;
+                ap.SetUl4Ms(length - (uint)width, address);
+            }
+            dtp.PushUl(character);
+            dtp.PushUl(0);
+        }
+
+        private void KonoBaitoSu()
+        {
+            uint length = dtp.GetUl();
+            dtp.PushUl(length);
+            dtp.PushUl(0);
+        }
+
         private void Toridasi()
         {
             dtp.PopUl();

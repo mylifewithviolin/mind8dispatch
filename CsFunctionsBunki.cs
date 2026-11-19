@@ -82,9 +82,36 @@ namespace Mind8Kernel
                 mp.MoveMcodeIndexByByte(mc);
             }else{
                 rtp.PushUl(count);
-                rtp.PushUl(0);
+                rtp.PushUl(1);
                 mp.MoveMcodeIndex(1);
             }
+        }
+
+        private void ZzLoop()
+        {
+            uint count = rtp.GetUl();
+            if (count >= rtp.GetUlOffset(1))
+            {
+                rtp.MoveStackPointer(2);
+                mp.MoveMcodeIndex(1);
+            }
+            else
+            {
+                rtp.SetUl(count + 1);
+                mp.MoveMcodeIndexByByte(mp.ReadMcodeShort());
+            }
+        }
+
+        private void ZzBreakLoop()
+        {
+            rtp.MoveStackPointer(2);
+            mp.MoveMcodeIndexByByte(mp.ReadMcodeShort());
+        }
+
+        private void Kaisu()
+        {
+            dtp.PushUl(rtp.GetUl());
+            dtp.PushUl(0);
         }
 
     }

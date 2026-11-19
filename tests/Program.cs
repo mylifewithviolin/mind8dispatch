@@ -25,6 +25,10 @@ var tests = new (string Name, Action Run)[]
     ("local scalar opcodes preserve the return frame", TestLocalScalarOpcodes),
     ("local pair opcodes preserve the return frame", TestLocalPairOpcodes),
     ("empty stack pop reports underflow without changing state", TestPopUnderflow),
+    ("native stack margin preserves memory and rejects reads beyond its boundary", TestNativeStackMargin),
+    ("generic exit preserves 32-bit return addresses and releases its frame", TestGenericExit),
+    ("runtime arguments preserve argc and null-terminated Shift-JIS values", TestRuntimeArguments),
+    ("output device distinguishes handles and preserves CRLF", TestOutputHandles),
     ("unimplemented opcode identifies its location", TestUnsupportedOpcode),
     ("integer output preserves signed 64-bit values and LF", TestIntegerOutput),
     ("greater-than compares signed operands in order", TestGreaterThan),
@@ -35,15 +39,24 @@ var tests = new (string Name, Action Run)[]
     ("string equality compares code and data regions", TestStringEquality),
     ("local string extraction updates the return frame", TestLocalStringExtraction),
     ("local access pointer survives stack movement and resets", TestLocalAccessPointer),
+    ("character strings retain stack references and byte order", TestCharacterStackStrings),
+    ("local string addresses survive return stack movement", TestLocalStringAddresses),
+    ("string storage handles all addressing forms and character limits", TestStringStorage),
+    ("default string storage and headers preserve existing values", TestDefaultStringStorage),
+    ("counted loops preserve counts and return frames", TestCountedLoops),
+    ("double array reads and writes honor element bounds", TestDoubleArrayAccess),
+    ("console integer conversions preserve signed values and stack order", TestConsoleIntegerConversions),
+    ("string margins and character extraction preserve Shift-JIS boundaries", TestStringMargins),
+    ("string append respects remaining capacity and overlap", TestStringAppend),
     ("last character handles empty and Shift-JIS strings", TestLastCharacter),
     ("swap preserves both words of each value", TestSwap),
     ("memory clear addresses the data region", TestClearDataMemory),
     ("byte searches address data and count from the proper end", TestDataByteSearch),
     ("hello fixture matches reference bytes", () => TestFixtureOutput("hello")),
     ("variables fixture matches reference bytes", () => TestFixtureOutput("variables")),
-    ("binarysearch fixture matches reference bytes", () => TestFixtureOutput("binarysearch")),
-    ("bubblesort fixture matches reference bytes", () => TestFixtureOutput("bubblesort")),
-    ("insertsort fixture matches reference bytes", () => TestFixtureOutput("insertsort")),
+    ("binarysearch fixture matches native CRLF reference bytes", () => TestFixtureOutput("binarysearch", nativeNewlines: true)),
+    ("bubblesort fixture matches native CRLF reference bytes", () => TestFixtureOutput("bubblesort", nativeNewlines: true)),
+    ("insertsort fixture matches native CRLF reference bytes", () => TestFixtureOutput("insertsort", nativeNewlines: true)),
     ("quad array access honors element bounds and both words", TestQuadArrayAccess),
     ("hello output matches the C kernel baseline", TestHelloOutputMatchesCReference),
     ("legacy serial-46 samples are rejected", TestAllSampleOutputs),
@@ -164,6 +177,131 @@ static void TestEmptyStackOffsetRead()
     stack.PushUl(123);
     stack.PushUl(456);
     Assert(stack.GetUlOffset(1) == 123, "offset read did not resolve to the previous stack value");
+}
+
+static void TestNativeStackMargin()
+{
+    var stack = new StackPointer();
+    stack.SetupStackArray(64, 32);
+    uint initial = stack.GetCurrentStackPointer();
+    Assert(stack.PopUl() == 0 && stack.GetCurrentStackPointer() == initial + 1,
+        "native empty pop did not advance into the allocated margin");
+    stack.PushUl(0x12345678);
+    Assert(stack.IsCurrentStackPointerInit() && stack.ReadAddress(initial * 4, 4) == 0x12345678,
+        "push into the margin lost its value or its absolute address");
+    Assert(stack.PopUl() == 0x12345678, "native pop synthesized zero instead of reading margin memory");
+    for (int i = 1; i < 8; i++) stack.PopUl();
+    uint pointer = stack.GetCurrentStackPointer();
+    bool failed = false;
+    try { stack.PopUl(); }
+    catch (InvalidOperationException) { failed = true; }
+    Assert(failed && stack.GetCurrentStackPointer() == pointer, "pop escaped the bounded margin");
+    stack.ResetStackPointer();
+    Assert(stack.IsCurrentStackPointerInit() && stack.GetCurrentStackPointer() == initial,
+        "reset did not restore the native empty stack");
+}
+
+static void TestGenericExit()
+{
+    DispatchFixture fixture = CreateDispatcher(3);
+    fixture.ReturnStack.PushUl(0x12345678);
+    fixture.ReturnStack.MoveStackPointer(-2);
+    fixture.Functions[0x0027]();
+    Assert(fixture.McodePointer.GetMcodeIndex() == 0x12345678, "generic EXIT truncated its return address");
+    Assert(fixture.ReturnStack.GetCurrentStackPointer() == fixture.InitialReturnStackPointer,
+        "generic EXIT did not release its full frame");
+}
+
+static void TestRuntimeArguments()
+{
+    using var file = new McoFixture(CreateMco(executionOpcodes: [0x0264, 0x0017]));
+    var dispatcher = new Dispatcher { TraceEnabled = false };
+    Assert(dispatcher.Main(file.Path, "\u3042 \u3044", "second") == 0, "argument fixture failed");
+    Type type = typeof(Dispatcher);
+    var stack = (StackPointer)type.GetField("dtp", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(dispatcher)!;
+    var code = (MCodePointer)type.GetField("mp", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(dispatcher)!;
+    Assert(stack.PopUl() == 0 && stack.PopUl() == 4, "argc omitted launcher, MCO, or program arguments");
+    DispatchFixture functions = CreateDispatcher();
+    SetField(type, functions.Dispatcher, "argumentAddresses",
+        type.GetField("argumentAddresses", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(dispatcher)!);
+    foreach ((uint index, string expected) in new (uint, string)[] { (1, file.Path), (2, "\u3042 \u3044"), (3, "second") })
+    {
+        functions.DataStack.PushUl(index);
+        functions.DataStack.PushUl(0);
+        functions.Functions[0x0263]();
+        Assert(functions.DataStack.PopUl() == 0, "argument address is not a numeric value");
+        uint address = functions.DataStack.PopUl();
+        uint count = code.SearchByteDirectForward(address, uint.MaxValue, 0);
+        Assert(System.Text.Encoding.GetEncoding("shift_jis").GetString(code.GetUb(address, count - 1)) == expected,
+            "argument bytes, spaces, or null terminator were not preserved");
+    }
+    functions.DataStack.PushUl(4);
+    functions.DataStack.PushUl(0);
+    bool failed = false;
+    try { functions.Functions[0x0263](); }
+    catch (ArgumentOutOfRangeException) { failed = true; }
+    Assert(failed, "out-of-range argument access was accepted");
+
+    using var cliFile = new McoFixture(CreateMco(executionOpcodes: [0x0264, 0x0014]));
+    var startInfo = new ProcessStartInfo("dotnet")
+    {
+        RedirectStandardOutput = true,
+        RedirectStandardError = true,
+        UseShellExecute = false
+    };
+    startInfo.ArgumentList.Add(typeof(Dispatcher).Assembly.Location);
+    startInfo.ArgumentList.Add(cliFile.Path);
+    startInfo.ArgumentList.Add("first argument");
+    startInfo.ArgumentList.Add("\u3042");
+    using Process process = Process.Start(startInfo) ?? throw new InvalidOperationException("argument CLI failed to start");
+    Task<string> outputTask = process.StandardOutput.ReadToEndAsync();
+    Task<string> errorTask = process.StandardError.ReadToEndAsync();
+    if (!process.WaitForExit(30000))
+    {
+        process.Kill(entireProcessTree: true);
+        process.WaitForExit();
+        throw new InvalidOperationException("argument CLI exceeded 30 seconds");
+    }
+    Assert(process.ExitCode == 4 && outputTask.GetAwaiter().GetResult() == "",
+        $"CLI did not forward program arguments: {errorTask.GetAwaiter().GetResult()}");
+    errorTask.GetAwaiter().GetResult();
+}
+
+static void TestOutputHandles()
+{
+    DispatchFixture fixture = CreateDispatcher();
+    uint address = fixture.McodePointer.AppendBytes([(byte)'A', 13, 10]);
+    TextWriter originalOut = Console.Out;
+    TextWriter originalError = Console.Error;
+    using var output = new StringWriter();
+    using var error = new StringWriter();
+    try
+    {
+        Console.SetOut(output);
+        Console.SetError(error);
+        foreach (uint handle in new uint[] { 1, 2, 9 })
+        {
+            fixture.DataStack.PushUl(address);
+            fixture.DataStack.PushUl(3);
+            fixture.DataStack.PushUl(handle);
+            fixture.DataStack.PushUl(0);
+            if (handle != 9) fixture.Functions[0x026D]();
+            else
+            {
+                bool failed = false;
+                try { fixture.Functions[0x026D](); }
+                catch (NotSupportedException) { failed = true; }
+                Assert(failed, "unsupported output handle was silently accepted");
+            }
+        }
+        Assert(output.ToString() == "A\r\n" && error.ToString() == "A\r\n",
+            "output handles or native newline bytes changed");
+    }
+    finally
+    {
+        Console.SetOut(originalOut);
+        Console.SetError(originalError);
+    }
 }
 
 static void TestLocalByteOffsets()
@@ -348,6 +486,13 @@ static void TestIntegerArithmetic()
     Assert(fixture.Dispatch() == 0, "integer division dispatch failed");
     Assert(fixture.DataStack.PopUl() == 0 && fixture.DataStack.PopUl() == 7,
         "integer division produced an incorrect result");
+
+    fixture = CreateDispatcher(0x0108, 5, 0x0017);
+    fixture.DataStack.PushUl(3);
+    fixture.DataStack.PushUl(0x12345678);
+    Assert(fixture.Dispatch() == 0, "immediate subtraction failed");
+    Assert(fixture.DataStack.PopUl() == 0x12345678 && unchecked((int)fixture.DataStack.PopUl()) == -2,
+        "immediate subtraction changed the fractional word or lost its negative result");
 }
 
 static void TestStringVariable()
@@ -432,6 +577,320 @@ static void TestLocalAccessPointer()
         "initializing the data area did not reset the access pointer");
 }
 
+static void TestConsoleIntegerConversions()
+{
+    foreach ((int dividend, int divisor, int remainder, int quotient) in new (int, int, int, int)[]
+        { (17, 5, 2, 3), (-17, 5, -2, -3), (0, 5, 0, 0), (17, -5, 2, -3) })
+    {
+        DispatchFixture fixture = CreateDispatcher();
+        fixture.DataStack.PushSl(dividend);
+        fixture.DataStack.PushUl(0);
+        fixture.DataStack.PushSl(divisor);
+        fixture.DataStack.PushUl(0);
+        fixture.Functions[0x010D]();
+        Assert(fixture.DataStack.PopUl() == 0 && unchecked((int)fixture.DataStack.PopUl()) == quotient,
+            "quotient order or sign differs");
+        Assert(fixture.DataStack.PopUl() == 0 && unchecked((int)fixture.DataStack.PopUl()) == remainder,
+            "remainder order or sign differs");
+    }
+    DispatchFixture zero = CreateDispatcher();
+    zero.DataStack.PushUl(1);
+    zero.DataStack.PushUl(0);
+    zero.DataStack.PushUl(0);
+    zero.DataStack.PushUl(0);
+    try { zero.Functions[0x010D](); throw new InvalidOperationException("zero divisor was accepted"); }
+    catch (DivideByZeroException) { }
+
+    foreach (uint value in new uint[] { 0, 1, 0xFFFFFFFF })
+    {
+        DispatchFixture fixture = CreateDispatcher(0x0138, 0xFF, 0x0017);
+        fixture.DataStack.PushUl(value);
+        fixture.DataStack.PushUl(0);
+        fixture.Functions[0x011C]();
+        fixture.Functions[0x011A]();
+        Assert(fixture.DataStack.PopUl() == 0 && fixture.DataStack.PopUl() == unchecked(0u - value),
+            "duplicate or negation changed the wrong word");
+        fixture.Functions[0x0121]();
+        Assert(fixture.DataStack.PopUl() == 0 && fixture.DataStack.PopUl() == (value == 0xFFFFFFFF ? 1u : 0u),
+            "negative predicate differs");
+        fixture.DataStack.PushUl(value);
+        fixture.DataStack.PushUl(0);
+        Assert(fixture.Dispatch() == 0, "immediate AND failed");
+        Assert(fixture.DataStack.PopUl() == 0 && fixture.DataStack.PopUl() == (value & 0xFF),
+            "immediate AND did not preserve the fractional word");
+        fixture.DataStack.PushUl(value);
+        fixture.DataStack.PushUl(0);
+        fixture.DataStack.PushUl(0);
+        fixture.DataStack.PushUl(0);
+        fixture.Functions[0x0111]();
+        fixture.DataStack.PushUl(0);
+        fixture.DataStack.PushUl(0);
+        fixture.Functions[0x00FE]();
+        Assert(fixture.DataStack.PopUl() == 0 && fixture.DataStack.PopUl() == (value == 0xFFFFFFFF ? 0u : 1u),
+            "signed comparison or boolean OR differs");
+    }
+}
+
+static void TestStringMargins()
+{
+    DispatchFixture fixture = CreateDispatcher();
+    var data = new AccessPointer();
+    data.SetupDataArray(40);
+    data.SetUl4Ms(4, 0x80000010);
+    SetField(typeof(Dispatcher), fixture.Dispatcher, "ap", data);
+    fixture.Functions[0x0182]();
+    foreach (uint character in new uint[] { 0x82A0, 65, 66, 67 })
+    {
+        fixture.DataStack.PushUl(character);
+        fixture.DataStack.PushUl(0);
+        fixture.Functions[0x017A]();
+    }
+    Assert(data.GetBytes(16, 12).SequenceEqual(new byte[] { 4, 0, 0, 0, 0, 0, 0, 0, 66, 65, 0x82, 0xA0 }),
+        "right margin or left append corrupted the string header or capacity");
+    data.SetUl4Ms(4, 0x80000018);
+    fixture.Functions[0x01A5]();
+    Assert(fixture.DataStack.PopUl() == 0 && fixture.DataStack.PopUl() == 0x82A0
+        && data.GetUl() == 2, "one-character extraction split Shift-JIS or returned string info instead of a character");
+    fixture.DataStack.PushUl(0x80000018);
+    fixture.DataStack.PushUl(2);
+    fixture.Functions[0x01E9]();
+    Assert(fixture.DataStack.PopUl() == 0 && fixture.DataStack.PopUl() == 2
+        && fixture.DataStack.PopUl() == 2 && fixture.DataStack.PopUl() == 0x80000018,
+        "byte count did not preserve the original string");
+}
+
+static void TestStringAppend()
+{
+    DispatchFixture fixture = CreateDispatcher();
+    var data = new AccessPointer();
+    data.SetupDataArray(32);
+    SetField(typeof(Dispatcher), fixture.Dispatcher, "ap", data);
+    fixture.McodePointer.WriteBytes(0x70, BitConverter.GetBytes(4u));
+    foreach (uint character in new uint[] { 65, 0x82A0 })
+    {
+        fixture.McodePointer.ResetMcodeIndex(0x70);
+        fixture.DataStack.PushUl(character);
+        fixture.DataStack.PushUl(0);
+        fixture.Functions[0x0177]();
+    }
+    fixture.McodePointer.ResetMcodeIndex(0x70);
+    fixture.Functions[0x0173]();
+    Assert(fixture.DataStack.PopUl() == 0 && fixture.DataStack.PopUl() == 1, "append capacity differs");
+    fixture.McodePointer.ResetMcodeIndex(0x70);
+    fixture.DataStack.PushUl(0x80000009);
+    fixture.DataStack.PushUl(2);
+    fixture.Functions[0x017B]();
+    Assert(data.GetUl() == 3, "append split a double-byte character to fill one remaining byte");
+    fixture.McodePointer.ResetMcodeIndex(0x70);
+    fixture.DataStack.PushUl(0x80000008);
+    fixture.DataStack.PushUl(1);
+    fixture.Functions[0x017B]();
+    Assert(data.GetBytes(8, 4).SequenceEqual(new byte[] { 65, 0x82, 0xA0, 65 }) && data.GetUl() == 4,
+        "overlapping append changed the source or stored length");
+}
+
+static void TestCountedLoops()
+{
+    foreach (uint count in new uint[] { 0, 1, 3 })
+    {
+        DispatchFixture fixture = CreateDispatcher(0x00EE, 8, 0x00F1, 0x00EF, 0xFFFC, 0x0017);
+        fixture.ReturnStack.PushUl(0x12345678);
+        fixture.DataStack.PushUl(count);
+        fixture.DataStack.PushUl(0);
+        Assert(fixture.Dispatch() == 0, "counted loop dispatch failed");
+        for (uint expected = count; expected > 0; expected--)
+            Assert(fixture.DataStack.PopUl() == 0 && fixture.DataStack.PopUl() == expected,
+                "counted loop did not run from one through its bound");
+        Assert(fixture.DataStack.GetCurrentStackPointer() == fixture.InitialDataStackPointer,
+            "zero-count loop ran its body or loop left stack data");
+        Assert(fixture.ReturnStack.PopUl() == 0x12345678
+            && fixture.ReturnStack.GetCurrentStackPointer() == fixture.InitialReturnStackPointer,
+            "counted loop changed the return frame");
+    }
+
+    DispatchFixture nested = CreateDispatcher();
+    nested.ReturnStack.PushUl(0x12345678);
+    foreach (uint bound in new uint[] { 3, 2 })
+    {
+        nested.McodePointer.ResetMcodeIndex(0x70);
+        nested.DataStack.PushUl(bound);
+        nested.DataStack.PushUl(0);
+        nested.Functions[0x00EE]();
+    }
+    nested.McodePointer.ResetMcodeIndex(0x70);
+    nested.McodePointer.WriteBytes(0x70, BitConverter.GetBytes((short)4));
+    nested.Functions[0x00F0]();
+    Assert(nested.McodePointer.GetMcodeIndex() == 0x74 && nested.ReturnStack.GetUl() == 1
+        && nested.ReturnStack.GetUlOffset(1) == 3 && nested.ReturnStack.GetUlOffset(2) == 0x12345678,
+        "breaking the inner loop discarded the outer loop or its return frame");
+}
+
+static void TestDoubleArrayAccess()
+{
+    foreach (uint index in new uint[] { 1, 3 })
+    {
+        DispatchFixture fixture = CreateDispatcher(0x00D5, 4, 0, 3, 0, 0x0017);
+        var data = new AccessPointer();
+        data.SetupDataArray(20);
+        data.SetUb4Msi(0xCC, 20);
+        SetField(typeof(Dispatcher), fixture.Dispatcher, "ap", data);
+        fixture.DataStack.PushUl(index);
+        fixture.DataStack.PushUl(0);
+        Assert(fixture.Dispatch() == 0, "double array selection failed");
+        fixture.DataStack.PushUl(0x12345678);
+        fixture.DataStack.PushUl(0);
+        fixture.Functions[0x005C]();
+        fixture.Functions[0x0047]();
+        Assert(fixture.DataStack.PopUl() == 0 && fixture.DataStack.PopUl() == 0x12345678,
+            "double array value changed");
+        int offset = (int)index * 4;
+        byte[] bytes = data.GetBytes(0, 20);
+        Assert(bytes.Where((_, i) => i < offset || i >= offset + 4).All(value => value == 0xCC),
+            "double array write changed an adjacent element");
+    }
+    foreach (uint index in new uint[] { 0, 4 })
+    {
+        DispatchFixture fixture = CreateDispatcher(0x00D5, 4, 0, 3, 0);
+        fixture.DataStack.PushUl(index);
+        fixture.DataStack.PushUl(0);
+        try { fixture.Dispatch(); }
+        catch (TargetInvocationException exception) when (exception.InnerException is IndexOutOfRangeException) { continue; }
+        throw new InvalidOperationException("out-of-range double array element was accepted");
+    }
+}
+
+static void TestCharacterStackStrings()
+{
+    foreach ((uint character, byte[] expected) in new (uint, byte[])[]
+        { (65, new byte[] { 65 }), (0x82A0, new byte[] { 0x82, 0xA0 }) })
+    {
+        DispatchFixture fixture = CreateDispatcher();
+        fixture.DataStack.PushUl(character);
+        fixture.DataStack.PushUl(0);
+        fixture.Functions[0x0161]();
+        Assert(fixture.DataStack.PopUl() == expected.Length, "character string length differs");
+        uint address = fixture.DataStack.PopUl();
+        uint pointer = fixture.DataStack.GetCurrentStackPointer();
+        fixture.DataStack.PushUl(123);
+        fixture.DataStack.PushUl(456);
+        for (int i = 0; i < expected.Length; i++)
+        {
+            fixture.DataStack.PushUl(address + (uint)i);
+            fixture.DataStack.PushUl(0);
+            fixture.Functions[0x008F]();
+            Assert(fixture.DataStack.PopUl() == 0 && fixture.DataStack.PopUl() == expected[i],
+                "character string did not reference the original stack bytes");
+        }
+        fixture.DataStack.MoveStackPointer(2);
+        Assert(fixture.DataStack.GetCurrentStackPointer() == pointer, "character conversion lost the original value");
+        Assert(fixture.DataStack.GetUlOffset(1) == (expected.Length == 1 ? character : 0xA082),
+            "little-endian character conversion differs from the C runtime");
+    }
+}
+
+static void TestLocalStringAddresses()
+{
+    DispatchFixture fixture = CreateDispatcher(0x0043, 2, 2, 0x0017);
+    fixture.ReturnStack.MoveStackPointer(-2);
+    fixture.ReturnStack.WriteLocal(2, 0xA082, 2);
+    Assert(fixture.Dispatch() == 0, "local string address dispatch failed");
+    Assert(fixture.DataStack.PopUl() == 2, "local string size was not preserved");
+    uint address = fixture.DataStack.PopUl();
+    fixture.ReturnStack.MoveStackPointer(-1);
+    fixture.DataStack.PushUl(address);
+    fixture.DataStack.PushUl(0);
+    fixture.Functions[0x008F]();
+    Assert(fixture.DataStack.PopUl() == 0 && fixture.DataStack.PopUl() == 0x82,
+        "local address moved with the return stack");
+}
+
+static void TestStringStorage()
+{
+    foreach (ushort opcode in new ushort[] { 0x0164, 0x0165, 0x0166, 0x0167 })
+    {
+        DispatchFixture fixture = CreateDispatcher();
+        var data = new AccessPointer();
+        data.SetupDataArray(32);
+        SetField(typeof(Dispatcher), fixture.Dispatcher, "ap", data);
+        uint source = fixture.McodePointer.AppendBytes(new byte[] { 0x82, 0xA0, (byte)'X' });
+        fixture.DataStack.PushUl(source);
+        fixture.DataStack.PushUl(3);
+        ushort[] operands = opcode switch
+        {
+            0x0164 => new ushort[] { 2, 0 },
+            0x0165 => new ushort[] { 0, 0, 2, 0 },
+            0x0166 => new ushort[] { 0, 2 },
+            _ => Array.Empty<ushort>()
+        };
+        for (int i = 0; i < operands.Length; i++)
+            fixture.McodePointer.WriteBytes((uint)(0x70 + i * 2), BitConverter.GetBytes(operands[i]));
+        if (opcode == 0x0166) fixture.ReturnStack.MoveStackPointer(-4);
+        if (opcode == 0x0167)
+        {
+            fixture.DataStack.PushUl(0x80000000);
+            fixture.DataStack.PushUl(2);
+        }
+        fixture.Functions[opcode]();
+        byte[] stored = opcode == 0x0166
+            ? fixture.ReturnStack.GetBytes(fixture.ReturnStack.GetCurrentStackPointer() * 4, 10)
+            : data.GetBytes(0, 10);
+        Assert(stored.SequenceEqual(new byte[] { 2, 0, 0, 0, 0, 0, 0, 0, 0x82, 0xA0 }),
+            $"string storage 0x{opcode:X4} did not write the header and complete character");
+        Assert(fixture.DataStack.GetCurrentStackPointer() == fixture.InitialDataStackPointer,
+            "string storage consumed the wrong number of stack words");
+
+        if (opcode != 0x0166)
+        {
+            data.ResetDataIndex(0);
+            data.SetUl4Ms(3, 0);
+            data.ResetDataIndex(8);
+            data.SetUb((byte)'A');
+            data.ResetDataIndex(9);
+            data.SetUb((byte)'B');
+            data.ResetDataIndex(10);
+            data.SetUb((byte)'C');
+            fixture.DataStack.PushUl(0x80000008);
+            fixture.DataStack.PushUl(3);
+            fixture.DataStack.PushUl(0x80000001);
+            fixture.DataStack.PushUl(4);
+            fixture.Functions[0x0167]();
+            Assert(data.GetBytes(9, 3).SequenceEqual(new byte[] { 65, 66, 67 }),
+                "overlapping string storage changed the source before copying it");
+        }
+    }
+}
+
+static void TestDefaultStringStorage()
+{
+    foreach (uint oldAddress in new uint[] { 0, 0x80000010 })
+    {
+        DispatchFixture fixture = CreateDispatcher();
+        var data = new AccessPointer();
+        data.SetupDataArray(48);
+        data.SetUl4Ms(1, 2);
+        data.ResetDataIndex(10);
+        data.SetUb(65);
+        SetField(typeof(Dispatcher), fixture.Dispatcher, "ap", data);
+        fixture.DataStack.PushUl(oldAddress);
+        fixture.DataStack.PushUl(oldAddress == 0 ? 0u : 7u);
+        fixture.DataStack.PushUl(0x80000000);
+        fixture.DataStack.PushUl(8);
+        fixture.Functions[0x0171]();
+        Assert(fixture.DataStack.PopUl() == (oldAddress == 0 ? 8u : 7u), "default capacity differs");
+        Assert(fixture.DataStack.PopUl() == (oldAddress == 0 ? 0x80000000u : oldAddress),
+            "default address overwrote an explicit address");
+        fixture.DataStack.PushUl(0x80000000);
+        fixture.DataStack.PushUl(8);
+        fixture.Functions[0x016A]();
+        Assert(fixture.DataStack.PopUl() == 1 && fixture.DataStack.PopUl() == 0x8000000A,
+            "string reference did not include the left margin");
+        fixture.DataStack.PushUl(0x80000000);
+        fixture.DataStack.PushUl(8);
+        fixture.Functions[0x0169]();
+        Assert(data.GetBytes(0, 8).All(value => value == 0), "string clear left a nonempty header");
+    }
+}
+
 static void TestLastCharacter()
 {
     foreach ((byte[] bytes, uint expected) in new (byte[], uint)[]
@@ -488,7 +947,7 @@ static void TestDataByteSearch()
     }
 }
 
-static void TestFixtureOutput(string name)
+static void TestFixtureOutput(string name, bool nativeNewlines = false)
 {
     string root = Directory.GetCurrentDirectory();
     string fixturePath = Path.Combine(root, "tests", "fixtures", name + ".mco");
@@ -518,6 +977,16 @@ static void TestFixtureOutput(string name)
         System.Text.RegularExpressions.Regex.IsMatch(line, @"^\s*\d+\s+[0-9A-F]{4}\s")),
         $"{name} produced unexpected stderr: {error}");
     byte[] expected = File.ReadAllBytes(referencePath);
+    if (nativeNewlines)
+    {
+        using var native = new MemoryStream();
+        foreach (byte value in expected)
+        {
+            if (value == 10) native.WriteByte(13);
+            native.WriteByte(value);
+        }
+        expected = native.ToArray();
+    }
     byte[] actual = output.ToArray();
     Assert(actual.SequenceEqual(expected),
         $"{name} stdout differs from reference (actual {actual.Length} bytes, expected {expected.Length} bytes)");

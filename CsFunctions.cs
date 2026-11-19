@@ -200,6 +200,7 @@ namespace Mind8Kernel
             csFuncs[0x00C1]=ZzHyouji;//
             csFuncs[0x00C4]=ZzKaigyou;
             csFuncs[0x00C9]=ZzBaiseidoHyouji;
+            csFuncs[0x00D5]=ZzPointDarray;
             csFuncs[0x00D6]=ZzPointQarray;
             
         /*--------------------- ならば～つぎに  -------------------------*/
@@ -207,9 +208,13 @@ namespace Mind8Kernel
             csFuncs[0x00ED]=ZzNotif;//
         /*------------------- 回数指定～繰り返し  ------------------------*/
             csFuncs[0x00EE]=ZzDo;//
+            csFuncs[0x00EF]=ZzLoop;
+            csFuncs[0x00F0]=ZzBreakLoop;
+            csFuncs[0x00F1]=Kaisu;
 
         /*--------------------- 数値計算  -------------------------------*/
             csFuncs[0x00FD]=ZzKatu;
+            csFuncs[0x00FE]=ZzMataha;
             csFuncs[0x0100]=IsFalse;
             csFuncs[0x0101]=HitotuKuwae;//
             csFuncs[0x0102]=FutatuKuwae;//
@@ -222,10 +227,16 @@ namespace Mind8Kernel
             csFuncs[0x0109]=ZzSubDimm;//
             csFuncs[0x010A]=Hiku;//
             csFuncs[0x010C]=Waru;
+            csFuncs[0x010D]=AmariToSyou;
             csFuncs[0x0110]=Tiisai;
+            csFuncs[0x0111]=Ijyou;
             csFuncs[0x0112]=Ookii;
             csFuncs[0x0114]=Hitosii;
+            csFuncs[0x011A]=Fusu;
+            csFuncs[0x011C]=Fukusya;
             csFuncs[0x011E]=Koukan;
+            csFuncs[0x0121]=IsFu;
+            csFuncs[0x0138]=ZzAndWimm;
             // csFuncs[0x010B]=HitotuHiki;//
             // csFuncs[0x010C]=FutatuHiki;//
             csFuncs[0x0122]=Sute;//
@@ -234,22 +245,37 @@ namespace Mind8Kernel
             // csFuncs[0x0125]=FutatuHiki;//   
         /*--------------------- 文字列実体変数への格納  ------------------*/
             csFuncs[0x015F]=IsKuretu;
+            csFuncs[0x0160]=IsNotKuretu;
+            csFuncs[0x0161]=ZzCtoS;
             csFuncs[0x0164]=ZzPopJvar;//
             csFuncs[0x0165]=ZzWriteJvar;//
             csFuncs[0x0166]=ZzWriteJvarLocal;//
             csFuncs[0x0167]=MojiretuJittaiWoIre;//        
+            csFuncs[0x0168]=ZzClearJvar;
+            csFuncs[0x0169]=ZzClearJvar;
+            csFuncs[0x016A]=MojiretuJittaiWoSansyo;
+            csFuncs[0x0170]=ChgDefaultStruct;
+            csFuncs[0x0171]=ChgDefaultStruct;
+            csFuncs[0x0173]=TuikaYoyu;
+            csFuncs[0x0177]=ItiMojiTuika;
+            csFuncs[0x017A]=ItiMojiHigaTuikaForJinfo;
+            csFuncs[0x017B]=Tuika;
+            csFuncs[0x0182]=MigiYoseForJinfo;
         /*----------- その他、文字列実体情報によるオペレーション  ---------*/
             csFuncs[0x016E]=ZzClearXvar;//
         /*--------------------- 一バイト検索  ---------------------------*/    
             csFuncs[0x01B7]=MigiKiridasi;
+            csFuncs[0x01A5]=ItiMojiMigiKiridasi;
             csFuncs[0x01D2]=UtanMoji;
             csFuncs[0x01D5]=Toridasi;
             csFuncs[0x01D7]=ItiBaitoKensaku;
             csFuncs[0x01D8]=GyakuItiBaitoKensaku;
             csFuncs[0x01DD]=HitosiiMojiretu;
             csFuncs[0x01EC]=SizeHenko;
+            csFuncs[0x01E9]=KonoBaitoSu;
         /*--------------------- 私のプログラム名  -----------------------*/
             csFuncs[0x0261]=CmcodeFullFilename;//
+            csFuncs[0x0263]=GetArgN;
             csFuncs[0x0264]=GetArgC;//
             csFuncs[0x0268]=EnableCtrlCSignal;
         /*--------------------- 標準入出力  -----------------------------*/

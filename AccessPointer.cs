@@ -1,137 +1,122 @@
-    namespace Mind8Kernel
+namespace Mind8Kernel
 {
-    /// <summary>データ領域アクセスポインタ</summary>
-    public class AccessPointer{
-        private uint dataSize;
-        private ulong dataIndex;
-        private byte[] dataArray =[];
-        private StackPointer? stack;
-        private long stackAddress;
-        public void SetupDataArray(uint size){
-            dataSize=size;
-            dataArray =new byte[dataSize];
-            dataIndex=0;
-            stack=null;
+    public class AccessPointer
+    {
+        private byte[] dataArray = [];
+        private uint address;
+        internal StackPointer? Stack { get; private set; }
+        internal MCodePointer? Code { get; private set; }
+        internal uint Address => address;
+
+        public void SetupDataArray(uint size)
+        {
+            dataArray = new byte[size];
+            ResetDataIndex(0);
         }
-        public void ResetDataIndex(ulong index){
-            dataIndex=index;
-            stack=null;
+
+        public void ResetDataIndex(ulong index)
+        {
+            address = checked((uint)index);
+            Stack = null;
+            Code = null;
         }
-        public void PointStack(StackPointer pointer, int byteOffset){
-            stack=pointer;
-            stackAddress=checked((long)pointer.GetCurrentStackPointer() * 4 + byteOffset);
+
+        public void PointStack(StackPointer pointer, int byteOffset) =>
+            PointStackAddress(pointer, checked((uint)((long)pointer.GetCurrentStackPointer() * 4 + byteOffset)));
+
+        internal void PointStackAddress(StackPointer pointer, uint location)
+        {
+            ResetDataIndex(location);
+            Stack = pointer;
         }
+
+        internal void PointCode(MCodePointer pointer, uint location)
+        {
+            ResetDataIndex(location);
+            Code = pointer;
+        }
+
         public byte[] CaptureDebugData() => (byte[])dataArray.Clone();
-        public byte[] GetBytes(uint index, uint count){
+
+        public byte[] GetBytes(uint index, uint count)
+        {
+            ValidateDataRange(index, count);
+            return dataArray.AsSpan((int)index, (int)count).ToArray();
+        }
+
+        internal void WriteDataBytes(uint index, ReadOnlySpan<byte> bytes)
+        {
+            ValidateDataRange(index, checked((uint)bytes.Length));
+            bytes.CopyTo(dataArray.AsSpan((int)index));
+        }
+
+        private void ValidateDataRange(uint index, uint count)
+        {
             if (index > dataArray.Length || count > dataArray.Length - index)
                 throw new ArgumentOutOfRangeException(nameof(index), "Requested data byte range is outside the data area.");
-            return dataArray.AsSpan(checked((int)index), checked((int)count)).ToArray();
-        }
-        public void ClearBytes(uint index, uint count){
-            if (index > dataArray.Length || count > dataArray.Length - index)
-                throw new ArgumentOutOfRangeException(nameof(index), "Requested data byte range is outside the data area.");
-            dataArray.AsSpan(checked((int)index), checked((int)count)).Clear();
-        }
-        public uint GetCurrentDataIndex(){
-            if (stack is not null) throw new InvalidOperationException("The access pointer refers to the return stack, not the data area.");
-            return (uint)dataIndex;
-        }
-        public byte GetUb(){    /* for unsigned byte access */
-            if (stack is not null) return (byte)stack.ReadAddress(stackAddress, 1);
-            return dataArray[dataIndex];
-        }
-        public ushort GetUs(){/* for unsigned short access  */
-            if (stack is not null) return (ushort)stack.ReadAddress(stackAddress, 2);
-            byte[] int16Byte = new byte[2];
-            for (ulong i = 0; i < 2; i++) int16Byte[i] = dataArray[dataIndex + i];
-            return BitConverter.ToUInt16(int16Byte, 0);
-        }        
-        public short GetSs(){/* for signed short access  */
-            if (stack is not null) return unchecked((short)stack.ReadAddress(stackAddress, 2));
-            byte[] int16Byte = new byte[2];
-            for (ulong i = 0; i < 2; i++) int16Byte[i] = dataArray[dataIndex + i];
-            return BitConverter.ToInt16(int16Byte, 0);
-        }
-        public int GetSl(){/* for signed long access   */
-            if (stack is not null) return unchecked((int)stack.ReadAddress(stackAddress, 4));
-            byte[] int32Byte = new byte[4];
-            for (ulong i = 0; i < 4; i++) int32Byte[i] = dataArray[dataIndex + i];
-            return BitConverter.ToInt32(int32Byte, 0);
-        }
-        public uint GetUl(){/* for unsigned long access   */
-            if (stack is not null) return (uint)stack.ReadAddress(stackAddress, 4);
-            byte[] int32Byte = new byte[4];
-            for (ulong i = 0; i < 4; i++) int32Byte[i] = dataArray[dataIndex + i];
-
-            return BitConverter.ToUInt32(int32Byte, 0);
-        } 
-        public long GetSll(){/* for signed long long access   */
-            if (stack is not null) return unchecked((long)stack.ReadAddress(stackAddress, 8));
-            byte[] int64Byte = new byte[8];
-            for (ulong i = 0; i < 8; i++) int64Byte[i] = dataArray[dataIndex + i];
-            return BitConverter.ToInt64(int64Byte, 0);
-        }
-        public ulong GetUll(){/* for unsigned long long access   */
-            if (stack is not null) return stack.ReadAddress(stackAddress, 8);
-            byte[] int64Byte = new byte[8];
-            for (ulong i = 0; i < 8; i++) int64Byte[i] = dataArray[dataIndex + i];
-            return BitConverter.ToUInt64(int64Byte, 0);
-        }
-        
-        public void SetUb(byte b){    /* for unsigned byte access */
-            if (stack is not null) { stack.WriteAddress(stackAddress, b, 1); return; }
-            dataArray[dataIndex] =b;
-        }
-        public void SetUb4Msi(byte b,uint length){  /* for unsigned byte access (for mind strings instance)*/
-            if (stack is not null) { for (uint i = 0; i < length; i++) stack.WriteAddress(stackAddress + i, b, 1); return; }
-            for (ulong i = 0; i < length; i++) dataArray[dataIndex + i]= b;
         }
 
-         public void SetUs(ushort us){/* for unsigned short access  */
-            if (stack is not null) { stack.WriteAddress(stackAddress, us, 2); return; }
-            byte[] int16Byte =BitConverter.GetBytes(us);
-            for (ulong i = 0; i < 2; i++) dataArray[dataIndex + i]=int16Byte[i];
-         }
+        public void ClearBytes(uint index, uint count)
+        {
+            ValidateDataRange(index, count);
+            dataArray.AsSpan((int)index, (int)count).Clear();
+        }
 
-        public void SetSs(short ss){/* for signed short access  */
-            if (stack is not null) { stack.WriteAddress(stackAddress, unchecked((ushort)ss), 2); return; }
-            byte[] int16Byte =BitConverter.GetBytes(ss);
-            for (ulong i = 0; i < 2; i++) dataArray[dataIndex + i]=int16Byte[i];
-         }
+        public uint GetCurrentDataIndex()
+        {
+            if (Stack is not null || Code is not null)
+                throw new InvalidOperationException("The access pointer does not refer to the data area.");
+            return address;
+        }
 
-        public void SetSl(int sl){/* for signed long access  */
-            if (stack is not null) { stack.WriteAddress(stackAddress, unchecked((uint)sl), 4); return; }
-            byte[] int32Byte =BitConverter.GetBytes(sl);
-            for (ulong i = 0; i < 4; i++) dataArray[dataIndex + i]=int32Byte[i];
+        private ulong ReadValue(int size)
+        {
+            if (Stack is not null) return Stack.ReadAddress(address, size);
+            byte[] bytes = Code is not null ? Code.GetUb(address, (uint)size) : GetBytes(address, (uint)size);
+            ulong value = 0;
+            for (int i = 0; i < size; i++) value |= (ulong)bytes[i] << (8 * i);
+            return value;
         }
-        public void SetUl(uint ul){/* for unsigned long access  */
-            if (stack is not null) { stack.WriteAddress(stackAddress, ul, 4); return; }
-            byte[] int32Byte =BitConverter.GetBytes(ul);
-            for (ulong i = 0; i < 4; i++) dataArray[dataIndex + i]=int32Byte[i];
+
+        private void WriteValue(ulong value, int size)
+        {
+            if (Stack is not null) { Stack.WriteAddress(address, value, size); return; }
+            Span<byte> bytes = stackalloc byte[8];
+            for (int i = 0; i < size; i++) bytes[i] = (byte)(value >> (8 * i));
+            if (Code is not null) Code.WriteBytes(address, bytes[..size]);
+            else WriteDataBytes(address, bytes[..size]);
         }
-        public void SetUl4Ms(uint ul,uint ul2){/* for unsigned long access (for mind string)  */
-            if (stack is not null) { stack.WriteAddress(stackAddress, ul, 4); stack.WriteAddress(stackAddress + 4, ul2, 4); return; }
-            byte[] int32Byte =BitConverter.GetBytes(ul);
-            for (ulong i = 0; i < 4; i++) dataArray[dataIndex + i]=int32Byte[i];
-            int32Byte =BitConverter.GetBytes(ul2);
-            for (ulong i = 0; i < 4; i++) dataArray[dataIndex + i + 4]=int32Byte[i];
-        }
-        public void SetUl2var(uint ul,uint ul2){/* for unsigned long access (for 1set of 2variable)  */
-            if (stack is not null) { stack.WriteAddress(stackAddress, ul, 4); stack.WriteAddress(stackAddress + 4, ul2, 4); return; }
-            byte[] int32Byte =BitConverter.GetBytes(ul);
-            for (ulong i = 0; i < 4; i++) dataArray[dataIndex + i]=int32Byte[i];
-            int32Byte =BitConverter.GetBytes(ul2);
-            for (ulong i = 0; i < 4; i++) dataArray[dataIndex + i + 4]=int32Byte[i];
-        }
-        public void SetSll(long sll){/* for signed long access  */
-            if (stack is not null) { stack.WriteAddress(stackAddress, unchecked((ulong)sll), 8); return; }
-            byte[] int64Byte =BitConverter.GetBytes(sll);
-            for (ulong i = 0; i < 8; i++) dataArray[dataIndex + i]=int64Byte[i];
-        }
-        public void SetUll(ulong ull){/* for unsigned long access  */
-            if (stack is not null) { stack.WriteAddress(stackAddress, ull, 8); return; }
-            byte[] int64Byte =BitConverter.GetBytes(ull);
-            for (ulong i = 0; i < 8; i++) dataArray[dataIndex + i]=int64Byte[i];
+
+        public byte GetUb() => (byte)ReadValue(1);
+        public ushort GetUs() => (ushort)ReadValue(2);
+        public short GetSs() => unchecked((short)ReadValue(2));
+        public uint GetUl() => (uint)ReadValue(4);
+        public int GetSl() => unchecked((int)ReadValue(4));
+        public ulong GetUll() => ReadValue(8);
+        public long GetSll() => unchecked((long)ReadValue(8));
+        public void SetUb(byte value) => WriteValue(value, 1);
+        public void SetUs(ushort value) => WriteValue(value, 2);
+        public void SetSs(short value) => WriteValue(unchecked((ushort)value), 2);
+        public void SetUl(uint value) => WriteValue(value, 4);
+        public void SetSl(int value) => WriteValue(unchecked((uint)value), 4);
+        public void SetUll(ulong value) => WriteValue(value, 8);
+        public void SetSll(long value) => WriteValue(unchecked((ulong)value), 8);
+        public void SetUl4Ms(uint first, uint second) => SetUll(first | ((ulong)second << 32));
+        public void SetUl2var(uint first, uint second) => SetUl4Ms(first, second);
+
+        public void SetUb4Msi(byte value, uint length)
+        {
+            for (uint i = 0; i < length; i++)
+            {
+                uint target = checked(address + i);
+                if (Stack is not null) Stack.WriteAddress(target, value, 1);
+                else if (Code is not null) Code.WriteBytes(target, new byte[] { value });
+                else
+                {
+                    ValidateDataRange(target, 1);
+                    dataArray[target] = value;
+                }
+            }
         }
     }
 }

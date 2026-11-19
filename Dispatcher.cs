@@ -14,10 +14,6 @@ namespace Mind8Kernel
         private const ushort SerialNumber = 42;
         private const uint DataAddressBit = 0x80000000;
 
-        private byte[] ReadStringBytes(uint address, uint length) =>
-            (address & DataAddressBit) != 0
-                ? ap.GetBytes(address & ~DataAddressBit, length)
-                : mp.GetUb(address, length);
         
         /// <summary>MCode情報構造体</summary>
         private struct McodeInfoStruct	     /*-- 全体=32バイト --*/
@@ -70,11 +66,11 @@ namespace Mind8Kernel
         private StackPointer dtp =new(); //データスタック用ポインタ
         private StackPointer rtp =new(); //リターンスタック用ポインタ
         private string mcodefilename ="";
-        private int argc=2;
+        private uint[] argumentAddresses = [];
 
         /// <summary>メイン</summary>
         /// <param name="args">引数</param>
-        public int Main(string args)
+        public int Main(string args, params string[] arguments)
         {
             mcodefilename=args;
             McodeInfoStruct mcodeInfo =new();
@@ -91,7 +87,8 @@ namespace Mind8Kernel
             ap.SetupDataArray(mcodeInfo.minfoDataSize);//データ領域用ポインタを準備する
             //resetDataStackPointer();//DstackPointer = DataStackBase[RestartEnvCount];
             //resetRetnStackPointer();//RstackPointer = RetnStackBase;
-            dtp.SetupStackArray((ushort)mcodeInfo.minfoDstackSize);//データスタック用ポインタを準備する
+            // The official console kernel reserves STACkMARGIN=32 beyond the empty stack.
+            dtp.SetupStackArray((ushort)mcodeInfo.minfoDstackSize, 32);
             rtp.SetupStackArray((ushort)mcodeInfo.minfoRstackSize);//リターンスタック用ポインタを準備する
             //McodePointer.b = (UCHAR *)McodeBase + 0x70;	/* 0x70=実行開始地点 */
             mp.ResetMcodeIndex(0x70);
@@ -100,6 +97,7 @@ namespace Mind8Kernel
             Action[] csFuncs=[]; //C#の関数を格納する配列
             /* C#の関数配列を準備する */
             SetupCsFunctions(ref csFuncs);
+            SetupArguments(arguments);
             /* ディスパッチャ開始 */
             return Dispatch(mcodeInfo, csFuncs);
 
@@ -289,7 +287,7 @@ namespace Mind8Kernel
             {
                 return Fail("LOC table size is invalid.");
             }
-            if (McodeInfo.minfoDataSize > int.MaxValue)
+            if (McodeInfo.minfoDataSize > AddressMask || McodeInfo.minfoMcodeSize > AddressMask)
             {
                 return Fail("Data area size exceeds the supported limit.");
             }

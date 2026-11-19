@@ -14,6 +14,58 @@ namespace Mind8Kernel
 
         private void IsFalse() => dtp.SetUlOffset(dtp.GetUlOffset(1) == 0 ? 1u : 0u, 1);
 
+        private void ZzMataha()
+        {
+            dtp.PopUl();
+            uint right = dtp.PopUl();
+            dtp.PopUl();
+            uint left = dtp.PopUl();
+            dtp.PushUl(left != 0 || right != 0 ? 1u : 0u);
+            dtp.PushUl(0);
+        }
+
+        private void AmariToSyou()
+        {
+            dtp.PopUl();
+            int divisor = unchecked((int)dtp.PopUl());
+            dtp.PopUl();
+            int dividend = unchecked((int)dtp.PopUl());
+            int quotient = dividend / divisor;
+            dtp.PushUl(unchecked((uint)(dividend % divisor)));
+            dtp.PushUl(0);
+            dtp.PushUl(unchecked((uint)quotient));
+            dtp.PushUl(0);
+        }
+
+        private void Ijyou()
+        {
+            dtp.PopUl();
+            int right = unchecked((int)dtp.PopUl());
+            dtp.PopUl();
+            int left = unchecked((int)dtp.PopUl());
+            dtp.PushUl(left >= right ? 1u : 0u);
+            dtp.PushUl(0);
+        }
+
+        private void Fusu()
+        {
+            dtp.PopUl();
+            uint value = dtp.PopUl();
+            dtp.PushUl(unchecked(0u - value));
+            dtp.PushUl(0);
+        }
+
+        private void Fukusya()
+        {
+            uint high = dtp.GetUl();
+            uint low = dtp.GetUlOffset(1);
+            dtp.PushUl(low);
+            dtp.PushUl(high);
+        }
+
+        private void IsFu() => dtp.SetUlOffset(unchecked((int)dtp.GetUlOffset(1)) < 0 ? 1u : 0u, 1);
+        private void ZzAndWimm() => dtp.SetUlOffset(dtp.GetUlOffset(1) & mp.FetchMcode(), 1);
+
         private void Tiisai()
         {
             dtp.PopUl();
@@ -126,7 +178,7 @@ namespace Mind8Kernel
 		{
 				/* Mコード=0x0108 */
 			//L_OF_Q -= FETCH_MCODE;
-			dtp.SetUl(dtp.GetUlOffset(1)-mp.FetchMcode());
+			dtp.SetUlOffset(dtp.GetUlOffset(1)-mp.FetchMcode(),1);
 		}
 		/* [n(32)を　引く]のコンパイリングワード */
 		private void   ZzSubDimm()         	/* ;WORD $$SUB_DIMM */

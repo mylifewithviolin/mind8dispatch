@@ -4,18 +4,22 @@ namespace Mind8Kernel
     public class StackPointer{
         private readonly uint stackSize=4;
         private uint stackMaxSize;
+        private uint underflowMargin;
         private uint stackIndex;
         private uint stackPointer;
         public byte[] dataArray =[];
-        public void SetupStackArray(uint size){
+        public void SetupStackArray(uint size, uint underflowMargin = 0){
+            if ((underflowMargin & 3) != 0)
+                throw new ArgumentOutOfRangeException(nameof(underflowMargin), "Stack margin must be word-aligned.");
             stackMaxSize=size;
-            dataArray =new byte[stackMaxSize];
+            this.underflowMargin = underflowMargin;
+            dataArray =new byte[checked(stackMaxSize + underflowMargin)];
             stackPointer=stackMaxSize/stackSize;//stackPointerは1024が初期値
-            stackIndex=0;//stackIndexは0が初期値
+            stackIndex=underflowMargin;
         }        
         public void ResetStackPointer(){
             stackPointer=stackMaxSize/stackSize;
-            stackIndex=0;//byte配列インデックス=アドレスポインタ変数の値*4
+            stackIndex=underflowMargin;
         }
         public void MoveStackPointer(int point){
             stackPointer=(uint)(stackPointer+point);
@@ -24,11 +28,21 @@ namespace Mind8Kernel
         public uint GetCurrentStackPointer(){
             return stackPointer;
         }
+        public byte[] GetBytes(uint address, uint count){
+            var bytes = new byte[checked((int)count)];
+            for (uint i = 0; i < count; i++)
+                bytes[i] = (byte)ReadAddress(checked(address + i), 1);
+            return bytes;
+        }
+        public void WriteBytes(uint address, ReadOnlySpan<byte> bytes){
+            for (int i = 0; i < bytes.Length; i++)
+                WriteAddress(checked(address + (uint)i), bytes[i], 1);
+        }
         public ulong ReadAddress(long address, int size){
             ulong value = 0;
             for (int i = 0; i < size; i++){
                 long location = checked(address + i);
-                long index = (long)stackMaxSize - (location / 4) * 4 + location % 4;
+                long index = (long)stackMaxSize + underflowMargin - (location / 4) * 4 + location % 4;
                 if (location < 0 || index < 0 || index >= dataArray.Length)
                     throw new ArgumentOutOfRangeException(nameof(address), "Stack address is outside the stack.");
                 value |= (ulong)dataArray[index] << (8 * i);
@@ -38,14 +52,14 @@ namespace Mind8Kernel
         public void WriteAddress(long address, ulong value, int size){
             for (int i = 0; i < size; i++){
                 long location = checked(address + i);
-                long index = (long)stackMaxSize - (location / 4) * 4 + location % 4;
+                long index = (long)stackMaxSize + underflowMargin - (location / 4) * 4 + location % 4;
                 if (location < 0 || index < 0 || index >= dataArray.Length)
                     throw new ArgumentOutOfRangeException(nameof(address), "Stack address is outside the stack.");
                 dataArray[index] = (byte)(value >> (8 * i));
             }
         }
         public uint[] CaptureDebugValues(){
-            int depth = checked((int)(stackMaxSize / stackSize - stackPointer));
+            int depth = Math.Max(0, checked((int)(stackMaxSize / stackSize) - (int)stackPointer));
             var result = new uint[depth];
             for (int i = 0; i < depth; i++)
                 result[i] = System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(
@@ -53,7 +67,7 @@ namespace Mind8Kernel
             return result;
         }
         public bool IsCurrentStackPointerInit(){
-            return (stackIndex==0);
+            return (stackIndex==underflowMargin);
         }
         public byte GetUb(){
             //アドレス指定で直接参照している元コードのためポインタインデックスの自動減少はなし
@@ -81,7 +95,7 @@ namespace Mind8Kernel
         public uint GetUlPoint(int point){/* for unsigned long access  */
             //アドレス指定で直接セットしている元コードのためポインタインデックスの自動増加はなし
             byte[] int32Byte = new byte[stackSize];
-            uint index=(uint)(stackMaxSize/stackSize-point)*stackSize;//+は減方向
+            uint index=checked((uint)((long)stackMaxSize + underflowMargin - (long)point * stackSize));
             for (ulong i = 0; i < stackSize; i++) int32Byte[i] = dataArray[index + i];
             return BitConverter.ToUInt32(int32Byte, 0);      
         }
@@ -130,7 +144,7 @@ namespace Mind8Kernel
         }
         
         public void PushUb(byte b){    /* for unsigned byte access */
-            if(stackIndex + stackSize > stackMaxSize-1)throw new Exception("stack over flow");
+            if(stackIndex + stackSize > dataArray.Length-1)throw new Exception("stack over flow");
             stackPointer--;//PUSHはポインタ減少
             stackIndex +=stackSize;//PUSHはインデックス増加
             byte[] int32Byte = new byte[stackSize];
@@ -138,21 +152,21 @@ namespace Mind8Kernel
             for (ulong i = 0; i < stackSize; i++) dataArray[stackIndex + i]=int32Byte[i];
         }
         public void PushUs(ushort us){    /* for unsigned byte access */
-            if(stackIndex + stackSize > stackMaxSize-1)throw new Exception("stack over flow");
+            if(stackIndex + stackSize > dataArray.Length-1)throw new Exception("stack over flow");
             stackPointer--;//PUSHはポインタ減少
             stackIndex +=stackSize;//PUSHはインデックス増加
             byte[] int32Byte =BitConverter.GetBytes(us);
             for (ulong i = 0; i < stackSize; i++) dataArray[stackIndex + i]=int32Byte[i];
         }
         public void PushUl(uint ul){/* for unsigned long(int32) access  */
-            if(stackIndex + stackSize > stackMaxSize-1)throw new Exception("stack over flow");
+            if(stackIndex + stackSize > dataArray.Length-1)throw new Exception("stack over flow");
             stackPointer--;//PUSHはポインタ減少
             stackIndex +=stackSize;//PUSHはインデックス増加           
             byte[] int32Byte =BitConverter.GetBytes(ul);
             for (ulong i = 0; i < stackSize; i++) dataArray[stackIndex + i]=int32Byte[i];
         }
         public void PushSl(int sl){/* for signed long(int32) access  */
-            if(stackIndex + stackSize > stackMaxSize-1)throw new Exception("stack over flow");
+            if(stackIndex + stackSize > dataArray.Length-1)throw new Exception("stack over flow");
             stackPointer--;//PUSHはポインタ減少
             stackIndex +=stackSize;//PUSHはインデックス増加
             byte[] int32Byte =BitConverter.GetBytes(sl);
@@ -197,7 +211,7 @@ namespace Mind8Kernel
         public void SetUlPoint(uint ul,int point){/* for unsigned long access  */
             //アドレス指定で直接セットしている元コードのためポインタインデックスの自動増加はなし
             byte[] int32Byte =BitConverter.GetBytes(ul);
-            uint index=(uint)(stackMaxSize/stackSize-point)*stackSize;//+は減方向
+            uint index=checked((uint)((long)stackMaxSize + underflowMargin - (long)point * stackSize));
             for (ulong i = 0; i < stackSize; i++) dataArray[index + i]=int32Byte[i];
         }
     }

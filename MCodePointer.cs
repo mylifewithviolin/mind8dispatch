@@ -71,6 +71,11 @@ namespace Mind8Kernel
                 throw new ArgumentOutOfRangeException(nameof(index), "Requested M-code byte range is outside the loaded data.");
             mcodeArray.AsSpan(checked((int)index), checked((int)count)).Clear();
         }
+        public void WriteBytes(uint index, ReadOnlySpan<byte> bytes){
+            if (index > mcodeArray.Length || bytes.Length > mcodeArray.Length - index)
+                throw new ArgumentOutOfRangeException(nameof(index), "Requested M-code byte range is outside the loaded data.");
+            bytes.CopyTo(mcodeArray.AsSpan(checked((int)index)));
+        }
         public uint SearchByteDirectForward(uint index, uint count, byte target){
             for (uint position = 0; position < count; position++)
             {

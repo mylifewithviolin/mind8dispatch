@@ -203,7 +203,7 @@ namespace Mind8Kernel
             // McodePointer.w = (USHORT *)(*(RstackPointer-1));
             rtp.MoveStackPointer(mp.FetchMcode());
             rtp.MoveStackPointer(-1);
-            mp.ResetMcodeIndex(rtp.PopUs()); 
+            mp.ResetMcodeIndex(rtp.PopUl());
         }
 
         /*--------------------- $$IFEXIT系  -----------------------------*/
@@ -357,7 +357,7 @@ namespace Mind8Kernel
         private void ZzPushPointer(){    /* ;WORD $$PUSH_POINTER */
                 /* Mコード=0x0033 */
             //PUSH_Q( AccessPointer.u , 0 );
-            dtp.PushUl(ap.GetCurrentDataIndex());
+            dtp.PushUl(AccessAddress);
             dtp.PushUl(0);
         }
         private void ZzPushPointerPlusSize(){    /* ;WORD $$PUSH_POINTER+SIZE */
@@ -368,7 +368,7 @@ namespace Mind8Kernel
             // #define  PUSH_A(addr)         PUSH_U(addr)
             // #define  PUSH_C(count)        PUSH_U(count)
             // #define  PUSH_S(addr,count)   PUSH_A(addr),PUSH_C(count)
-            dtp.PushUl(ap.GetCurrentDataIndex());
+            dtp.PushUl(AccessAddress);
             dtp.PushUl(mp.GetUl());
         }
         private void AddressWoEru(){          /* ;WORD アドレスを得る */
@@ -380,7 +380,10 @@ namespace Mind8Kernel
         }
 
         /*---------------------  大域変数のセットアップ  ------------------*/
-        private void ZzPointQarray()
+        private void ZzPointQarray() => PointArray(8);
+        private void ZzPointDarray() => PointArray(4);
+
+        private void PointArray(uint elementSize)
         {
             uint offset = mp.FetchMcodeInt();
             uint elements = mp.FetchMcodeInt();
@@ -390,7 +393,7 @@ namespace Mind8Kernel
             {
                 throw new IndexOutOfRangeException($"Array index {index} is outside 1..{elements}.");
             }
-            ap.ResetDataIndex(checked(offset + (index - 1) * 8));
+            ap.ResetDataIndex(checked(offset + (index - 1) * elementSize));
         }
 
         private void ZzPointVarAddr(){   /* ;WORD $$POINT_VARADDR */
@@ -403,7 +406,7 @@ namespace Mind8Kernel
                 /* Mコード=0x0036 */
             //SET_APb_by_MBASE_PLUS_FETCH_MCODE_LONG;
             // #define  SET_APb_by_MBASE_PLUS_FETCH_MCODE_LONG AccessPointer.b=(UCHAR *)McodeBase+FETCH_MCODE_LONG
-            ap.ResetDataIndex(mp.FetchMcodeInt());//byte配列なのでアドレス絶対値がない
+            ap.PointCode(mp, mp.FetchMcodeInt());
         }
         /*---------------------  大域集合のセットアップ  ------------------*/
         private void ZzPushVarAddrPlusSize(){    /* ;WORD $$PUSH_VARADDR+SIZE */
@@ -478,7 +481,7 @@ namespace Mind8Kernel
                 /* Mコード=0x0044 */
             // PUSH_A( (UCHAR *)RstackPointer + FETCH_MCODE );
             // PUSH_C( FETCH_MCODE );
-           dtp.PushUl(mp.FetchMcode());//byte配列なので絶対アドレスない
+           dtp.PushUl(LocalAddress(mp.FetchMcode()));
            dtp.PushUl(mp.FetchMcode());
 
         }
@@ -619,7 +622,7 @@ namespace Mind8Kernel
             uint length = (uint)header;
             uint margin = (uint)(header >> 32);
             uint address = checked(offset + 8 + margin);
-            if ((address & DataAddressBit) != 0)
+            if (address > AddressMask)
                 throw new ArgumentOutOfRangeException(nameof(address), "String data address exceeds the supported range.");
             dtp.PushUl(DataAddressBit | address);
             dtp.PushUl(length);
@@ -959,10 +962,7 @@ namespace Mind8Kernel
             // memset( address, 0, length );
             uint length = dtp.PopUl();
             uint address = dtp.PopUl();
-            if ((address & DataAddressBit) != 0)
-                ap.ClearBytes(address & ~DataAddressBit, length);
-            else
-                mp.ClearBytes(address, length);
+            WriteMemory(address, new byte[checked((int)length)]);
         }
 
         /*--------------------- 変数を一つ増加  -------------------------*/
@@ -1135,7 +1135,7 @@ namespace Mind8Kernel
             //WRITE_L_OF_Q( *READ_A_OF_S );	/*注:一旦変数に受けていたが廃止*/
             // #define  WRITE_L_OF_Q(value)  *(DstackPointer+1)=(LONG)(value)
             // #define  READ_A_OF_S          ((UCHAR *)DstackPointer[1])
-            dtp.SetUlOffset(dtp.GetUlOffset(+1),+1);//offset-1->+1
+            dtp.SetUlOffset(ReadStringBytes(dtp.GetUlOffset(1), 1)[0], 1);
         }
         private void WordLoad(){     /* ;WORD ワードロード .N */
                 /* Mコード=0x0090 */

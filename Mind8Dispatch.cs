@@ -11,7 +11,7 @@ namespace Mind8Kernel
         {
             string mcodefilename=args.Length > 0 ? args[0] : "hellolevel7.mco";
             Dispatcher dispatcher =new();
-            return dispatcher.Main(mcodefilename);
+            return dispatcher.Main(mcodefilename, args.Length > 0 ? args[1..] : []);
     
         }       
     }
