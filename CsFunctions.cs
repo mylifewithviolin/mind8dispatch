@@ -6,7 +6,7 @@ namespace Mind8Kernel
 {
     public partial class Dispatcher
     {
-        private readonly int maxCountCsFunctions = 1 + 0x02CE;
+        private readonly int maxCountCsFunctions = 1 + 0x02F6;
         /// <summary>C#の関数配列を準備する</summary>
         /// <param name="csFunc">C#関数配列の参照</param>
         private void SetupCsFunctions(ref Action[] csFuncs){
@@ -193,15 +193,78 @@ namespace Mind8Kernel
         /*--------------------- 文字列定数  ----------------------------*/
             csFuncs[0x00A4]=ZzSliteralOdd;//
             csFuncs[0x00A5]=ZzSliteralEven;//
+            csFuncs[0x00A6]=C_atof;
+            csFuncs[0x00A7]=CMZero;
+            csFuncs[0x00A8]=CMOne;
+            csFuncs[0x00A9]=CME;
+            csFuncs[0x00AA]=CMLog2E;
+            csFuncs[0x00AB]=CMLog10E;
+            csFuncs[0x00AC]=CMLn2;
+            csFuncs[0x00AD]=CMLn10;
+            csFuncs[0x00AE]=CMPi;
+            csFuncs[0x00AF]=CMPi2;
+            csFuncs[0x00B0]=CMPi4;
+            csFuncs[0x00B1]=CM1Pi;
+            csFuncs[0x00B2]=CM2Pi;
+            csFuncs[0x00B3]=CM2SqrtPi;
+            csFuncs[0x00B4]=CMSqrt2;
+            csFuncs[0x00B5]=CM_SQRT1_2;
+            csFuncs[0x00B6]=StackPointer;
+            csFuncs[0x00B7]=ReturnStackPointer;
+            csFuncs[0x00B8]=zzDataArear;
+            csFuncs[0x00B9]=seisubuWoEru;
+            csFuncs[0x00BA]=syosubuWoEru;
+            csFuncs[0x00BB]=seisubuWoClear;
+            csFuncs[0x00BC]=seisuToSyosuWoPack;
+            csFuncs[0x00BD]=seisuToSyosuWoUnpack;
         /*--------------------- 文字列情報分解・合成  -------------------*/
             csFuncs[0x00BE]=MojiretuJyouhouBunkai;//
             csFuncs[0x00BF]=MojiretuJyouhouGousei;//
         /*--------------------- 表示系  --------------------------------*/
+            csFuncs[0x00C0]=WordStore11;
             csFuncs[0x00C1]=ZzHyouji;//
+            csFuncs[0x00C2]=ZzDoubleQuateHyouji;
+            csFuncs[0x00C3]=ZzIchimojiHyouji;
             csFuncs[0x00C4]=ZzKaigyou;
+            csFuncs[0x00C5]=ZzNibbleHyouji;
+            csFuncs[0x00C6]=ZzByteHyouji;
+            csFuncs[0x00C7]=ZzWordHyouji;
+            csFuncs[0x00C8]=ZzDoubleHyouji;
+            csFuncs[0x00CB]=zzSyosuHyouji;
+            csFuncs[0x00CC]=zzSisuHyouji;
+            csFuncs[0x00CD]=C_conv_to_string_fraction;
+            csFuncs[0x00CE]=zzQuadHyouji;
+            csFuncs[0x00CF]=zzDump;
+            csFuncs[0x00D0]=zzDumpWord;
+            csFuncs[0x00D1]=zzStackDump;
+            csFuncs[0x00D2]=zzReturnStackMonitor;
             csFuncs[0x00C9]=ZzBaiseidoHyouji;
+            csFuncs[0x00CA]=C_conv_to_string_quad;
+            csFuncs[0x00D3]=ZzPointBarray;
+            csFuncs[0x00D4]=ZzPointWarray;
             csFuncs[0x00D5]=ZzPointDarray;
             csFuncs[0x00D6]=ZzPointQarray;
+            csFuncs[0x00D7]=ZzPointQarray;
+            csFuncs[0x00D8]=ZzPointJXarray;
+            csFuncs[0x00D9]=ZzPointBarrayLocal;
+            csFuncs[0x00DA]=ZzPointWarrayLocal;
+            csFuncs[0x00DB]=ZzPointDarrayLocal;
+            csFuncs[0x00DC]=ZzPointQarrayLocal;
+            csFuncs[0x00DD]=ZzPointQarrayLocal;
+            csFuncs[0x00DE]=ZzPointJXarrayLocal;
+            csFuncs[0x00DF]=ZzPointConsBarray;
+            csFuncs[0x00E0]=ZzPointConsWarray;
+            csFuncs[0x00E1]=ZzPointConsDarray;
+            csFuncs[0x00E2]=ZzPointConsQarray;
+            csFuncs[0x00E3]=ZzPointConsJarray;
+            csFuncs[0x00E4]=ZzPointStrucVariable;
+            csFuncs[0x00E5]=ZzPushStrucRecord;
+            csFuncs[0x00E6]=ZzPointStrucVariableLocal;
+            csFuncs[0x00E7]=ZzPushStrucRecordLocal;
+            csFuncs[0x00E8]=ZzRepointTempVariableShort;
+            csFuncs[0x00E9]=ZzRepointTempRecordShort;
+            csFuncs[0x00EA]=ZzRepointTempVariable;
+            csFuncs[0x00EB]=ZzRepointTempRecord;
             
         /*--------------------- ならば～つぎに  -------------------------*/
             csFuncs[0x00EC]=Zzif;//
@@ -211,10 +274,22 @@ namespace Mind8Kernel
             csFuncs[0x00EF]=ZzLoop;
             csFuncs[0x00F0]=ZzBreakLoop;
             csFuncs[0x00F1]=Kaisu;
+            csFuncs[0x00F2]=KaisuM1;
+            csFuncs[0x00F3]=KaisuP1;
+            csFuncs[0x00F4]=ZenKausu;
+            csFuncs[0x00F5]=SotogawaKaisu;
+            csFuncs[0x00F6]=SotogawaKaisuM1;
+            csFuncs[0x00F7]=SotogawaKaisuP1;
+            csFuncs[0x00F8]=SotogawaZenKausu;
+            csFuncs[0x00F9]=ZzSelect;
+            csFuncs[0x00FA]=ZzDcase;
+            csFuncs[0x00FB]=ZzDrange;
+            csFuncs[0x00FC]=ZzScase;
 
         /*--------------------- 数値計算  -------------------------------*/
             csFuncs[0x00FD]=ZzKatu;
             csFuncs[0x00FE]=ZzMataha;
+            csFuncs[0x00FF]=IsTrue;
             csFuncs[0x0100]=IsFalse;
             csFuncs[0x0101]=HitotuKuwae;//
             csFuncs[0x0102]=FutatuKuwae;//

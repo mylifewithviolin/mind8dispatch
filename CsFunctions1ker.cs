@@ -13,6 +13,7 @@ namespace Mind8Kernel
         }
 
         private void IsFalse() => dtp.SetUlOffset(dtp.GetUlOffset(1) == 0 ? 1u : 0u, 1);
+        private void IsTrue() => dtp.SetUlOffset(dtp.GetUlOffset(1) != 0 ? 1u : 0u, 1);
 
         private void ZzMataha()
         {

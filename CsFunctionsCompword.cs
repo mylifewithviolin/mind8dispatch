@@ -1,5 +1,7 @@
 ﻿
+﻿using System.Buffers.Binary;
 using System.Dynamic;
+using System.Globalization;
 using System.Runtime.InteropServices;
 
 namespace Mind8Kernel
@@ -380,20 +382,171 @@ namespace Mind8Kernel
         }
 
         /*---------------------  大域変数のセットアップ  ------------------*/
+        private void ZzPointBarray() => PointArray(1);
+        private void ZzPointWarray() => PointArray(2);
         private void ZzPointQarray() => PointArray(8);
         private void ZzPointDarray() => PointArray(4);
+        private void ZzPointJXarray()
+        {
+            uint offset = mp.FetchMcodeInt();
+            uint elements = mp.FetchMcodeInt();
+            uint elementSize = mp.FetchMcodeInt();
+            PointDataArray(offset, elements, elementSize);
+        }
 
         private void PointArray(uint elementSize)
         {
             uint offset = mp.FetchMcodeInt();
             uint elements = mp.FetchMcodeInt();
-            dtp.PopUl();
-            uint index = dtp.PopUl();
-            if (index == 0 || index > elements)
+            PointDataArray(offset, elements, elementSize);
+        }
+
+        private void PointDataArray(uint offset, uint elements, uint elementSize)
+        {
+            uint index = PopArrayIndex(elements);
+            ap.ResetDataIndex(checked(offset + checked(index * elementSize)));
+        }
+
+        private void ZzPointBarrayLocal() => PointLocalArray(1);
+        private void ZzPointWarrayLocal() => PointLocalArray(2);
+        private void ZzPointDarrayLocal() => PointLocalArray(4);
+        private void ZzPointQarrayLocal() => PointLocalArray(8);
+        private void ZzPointJXarrayLocal()
+        {
+            uint offset = mp.FetchMcode();
+            uint elements = mp.FetchMcode();
+            uint elementSize = mp.FetchMcode();
+            PointLocalArray(offset, elements, elementSize);
+        }
+
+        private void PointLocalArray(uint elementSize)
+        {
+            uint offset = mp.FetchMcode();
+            uint elements = mp.FetchMcode();
+            PointLocalArray(offset, elements, elementSize);
+        }
+
+        private void PointLocalArray(uint offset, uint elements, uint elementSize)
+        {
+            uint index = PopArrayIndex(elements);
+            uint stackAddress = checked(rtp.GetCurrentStackPointer() * 4);
+            uint byteOffset = checked(offset + checked(index * elementSize));
+            PointAddress(AddAddress(ReturnStackAddressBit | stackAddress, byteOffset));
+        }
+
+        private void ZzPointConsBarray() => PointConstantArray(1);
+        private void ZzPointConsWarray() => PointConstantArray(2);
+        private void ZzPointConsDarray() => PointConstantArray(4);
+        private void ZzPointConsQarray() => PointConstantArray(8);
+        private void ZzPointConsJarray() => PointConstantArray(4, stringArray: true);
+
+        private void PointConstantArray(uint elementSize, bool stringArray = false)
+        {
+            uint tableAddress = mp.FetchMcodeInt();
+            uint elements = System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(ReadStringBytes(tableAddress, 2));
+            uint index = PopArrayIndex(elements);
+            uint valueAddress = AddAddress(tableAddress, 2);
+            if (stringArray)
             {
-                throw new IndexOutOfRangeException($"Array index {index} is outside 1..{elements}.");
+                PointAddress(ReadMemoryWord(AddAddress(valueAddress, checked(index * 4))));
+                return;
             }
-            ap.ResetDataIndex(checked(offset + (index - 1) * elementSize));
+            PointAddress(AddAddress(valueAddress, checked(index * elementSize)));
+        }
+
+        private uint PopArrayIndex(uint elements)
+        {
+            uint index = PopIntegerOfQuad();
+            if (index == 0 || index > elements)
+                throw new IndexOutOfRangeException($"Array index {index} is outside 1..{elements}.");
+            return index - 1;
+        }
+
+        private void ZzPointStrucVariable()
+        {
+            uint tableAddress = mp.FetchMcodeInt();
+            (uint offset, _) = ResolveStructure(tableAddress, hasInitialOffset: true, baseOffset: 0);
+            ap.ResetDataIndex(offset);
+        }
+
+        private void ZzPushStrucRecord()
+        {
+            uint tableAddress = mp.FetchMcodeInt();
+            (uint offset, uint accessSize) = ResolveStructure(tableAddress, hasInitialOffset: true, baseOffset: 0);
+            dtp.PushUl(DataAddressBit | offset);
+            dtp.PushUl(accessSize);
+        }
+
+        private void ZzPointStrucVariableLocal()
+        {
+            uint tableAddress = mp.FetchMcodeInt();
+            uint offset = mp.FetchMcode();
+            (uint localOffset, _) = ResolveStructure(tableAddress, hasInitialOffset: false, baseOffset: offset);
+            PointAddress(AddAddress(ReturnStackAddressBit | checked(rtp.GetCurrentStackPointer() * 4), localOffset));
+        }
+
+        private void ZzPushStrucRecordLocal()
+        {
+            uint tableAddress = mp.FetchMcodeInt();
+            uint offset = mp.FetchMcode();
+            (uint localOffset, uint accessSize) = ResolveStructure(tableAddress, hasInitialOffset: false, baseOffset: offset);
+            uint address = AddAddress(ReturnStackAddressBit | checked(rtp.GetCurrentStackPointer() * 4), localOffset);
+            dtp.PushUl(address);
+            dtp.PushUl(accessSize);
+        }
+
+        private (uint Offset, uint AccessSize) ResolveStructure(uint tableAddress, bool hasInitialOffset, uint baseOffset)
+        {
+            uint cursor = tableAddress;
+            uint offset = hasInitialOffset ? ReadMemoryWord(cursor) : baseOffset;
+            if (hasInitialOffset) cursor = AddAddress(cursor, 4);
+
+            while (true)
+            {
+                uint elements = ReadMemoryWord(cursor);
+                cursor = AddAddress(cursor, 4);
+                if (elements == 0) return (offset, ReadMemoryWord(cursor));
+
+                uint elementSize = ReadMemoryWord(cursor);
+                cursor = AddAddress(cursor, 4);
+                offset = checked(offset + checked(PopArrayIndex(elements) * elementSize));
+            }
+        }
+
+        private void ZzRepointTempVariableShort()
+        {
+            dtp.PopUl();
+            uint address = dtp.PopUl();
+            PointAddress(AddAddress(address, mp.FetchMcodeInt()));
+        }
+
+        private void ZzRepointTempRecordShort()
+        {
+            uint offset = mp.FetchMcodeInt();
+            uint accessSize = mp.FetchMcodeInt();
+            dtp.PopUl();
+            uint address = dtp.PopUl();
+            dtp.PushUl(AddAddress(address, offset));
+            dtp.PushUl(accessSize);
+        }
+
+        private void ZzRepointTempVariable()
+        {
+            uint tableAddress = mp.FetchMcodeInt();
+            (uint offset, _) = ResolveStructure(tableAddress, hasInitialOffset: true, baseOffset: 0);
+            dtp.PopUl();
+            uint address = dtp.PopUl();
+            PointAddress(AddAddress(address, offset));
+        }
+
+        private void ZzRepointTempRecord()
+        {
+            uint tableAddress = mp.FetchMcodeInt();
+            (uint offset, uint accessSize) = ResolveStructure(tableAddress, hasInitialOffset: true, baseOffset: 0);
+            dtp.PopUl();
+            uint address = dtp.PopUl();
+            dtp.PushUl(AddAddress(address, offset));
+            dtp.PushUl(accessSize);
         }
 
         private void ZzPointVarAddr(){   /* ;WORD $$POINT_VARADDR */
@@ -533,13 +686,11 @@ namespace Mind8Kernel
         }
         private void ZzPushJvar(){
                 /* Mコード=0x004B */
-            // ULONG   length;
-            // ULONG   margin;
-            // length = *AccessPointer.u++;
-            // margin = *AccessPointer.u++;
-            // PUSH_A( AccessPointer.b + margin ); 	/* push address */
-            // PUSH_C( length );                       /* push length  */
-            throw new UnDefined(0);
+            uint address = AccessAddress;
+            uint length = ReadMemoryWord(address);
+            uint margin = ReadMemoryWord(AddAddress(address, 4));
+            dtp.PushUl(AddAddress(address, checked(8 + margin)));
+            dtp.PushUl(length);
         }
 
         /*---------------------  変数の直接読み出し  ----------------------*/
@@ -704,7 +855,11 @@ namespace Mind8Kernel
             // margin = *varAddr++;
             // PUSH_A( (UCHAR *)varAddr + margin );            /* push address */
             // PUSH_C( length );                               /* push length  */
-            throw new UnDefined(0);
+            uint address = LocalAddress(mp.FetchMcode());
+            uint length = ReadMemoryWord(address);
+            uint margin = ReadMemoryWord(AddAddress(address, 4));
+            dtp.PushUl(AddAddress(address, checked(8 + margin)));
+            dtp.PushUl(length);
 
         }
         /*---------------------  変数の間接書き込み  ------------------*/
@@ -747,12 +902,28 @@ namespace Mind8Kernel
         }
         private void ZzPopMemory(){
                 /* Mコード=0x0060 */
-            throw new UnDefined(0);
+            uint targetLength = dtp.PopUl();
+            uint targetAddress = dtp.PopUl();
+            uint sourceLength = dtp.PopUl();
+            uint sourceAddress = dtp.PopUl();
+            uint length = Math.Min(sourceLength, targetLength);
+            byte[] content = ReadStringBytes(sourceAddress, length);
+            WriteMemory(targetAddress, content);
         }
         private void ZzPopMemoryWithResult(){
                 /* Mコード=0x0061 */
                 /* Mコード=0x0062 */
-            throw new UnDefined(0);
+            uint targetLength = dtp.PopUl();
+            uint targetAddress = dtp.PopUl();
+            uint sourceLength = dtp.PopUl();
+            uint sourceAddress = dtp.PopUl();
+            uint length = Math.Min(sourceLength, targetLength);
+            byte[] content = ReadStringBytes(sourceAddress, length);
+            WriteMemory(targetAddress, content);
+            dtp.PushUl(AddAddress(targetAddress, length));
+            dtp.PushUl(targetLength - length);
+            dtp.PushUl(length);
+            dtp.PushUl(0);
         }
 
         /*---------------------  変数の直接書き込み  --------------------*/
@@ -944,7 +1115,22 @@ namespace Mind8Kernel
         private void ZzClearFvar(){ /* ;WORD $$CLR_FVAR */
                 /* Mコード=0x0073 */
             //*AccessPointer.f = 0.0f;	/*注：64bit*/;
-            throw new UnDefined(0);
+            ap.SetUll(0);
+        }
+        private double PopFloat(){
+            uint low = dtp.PopUl();
+            uint high = dtp.PopUl();
+            ulong bits = ((ulong)high << 32) | low;
+            return BitConverter.Int64BitsToDouble(unchecked((long)bits));
+        }
+        private void PushFloat(double value){
+            ulong bits = unchecked((ulong)BitConverter.DoubleToInt64Bits(value));
+            dtp.PushUl((uint)(bits >> 32));
+            dtp.PushUl((uint)bits);
+        }
+        private uint PopIntegerOfQuad(){
+            dtp.PopUl();
+            return dtp.PopUl();
         }
         private void ZzClearSvar(){  /* ;WORD $$CLR_SVAR */
                 /* Mコード=0x0074 */
@@ -1034,11 +1220,21 @@ namespace Mind8Kernel
         }
         private void c_test_push_quad(){	    /* ;WORD c_test_push_quad */
                 /* Mコード=0x0083 */
-            throw new UnDefined(0);
+            ulong value = (ulong)dtp.PopUl() << 32 | dtp.PopUl();
+            Console.WriteLine("pop qval completed");
+            Console.WriteLine($"qval(hex)={value:x16}");
+            Console.WriteLine("push qval back");
+            dtp.PushUl((uint)value & 0xFFFF);
+            dtp.PushUl((uint)(value >> 32));
         }
         private void c_test_push_float(){    /* ;WORD c_test_push_float */
                 /* Mコード=0x0084 */
-            throw new UnDefined(0);
+            double value = PopFloat();
+            Console.WriteLine("pop fval completed");
+            Console.WriteLine($"fval(decimal)={value.ToString("F5", CultureInfo.InvariantCulture)}");
+            Console.WriteLine($"fval(bits)={unchecked((ulong)BitConverter.DoubleToInt64Bits(value)):x16}");
+            Console.WriteLine("push fval back");
+            PushFloat(value);
         }
         /*--------------------- 変数を増加  -----------------------------*/
         private void ZzAddBvar(){    /* ;WORD $$ADD_BVAR */
@@ -1083,7 +1279,9 @@ namespace Mind8Kernel
             // double	fval;
             // fval = pop_float();
             // *AccessPointer.f += fval;
-            throw new UnDefined(0);
+            double value = PopFloat();
+            double current = BitConverter.Int64BitsToDouble(unchecked((long)ap.GetUll()));
+            ap.SetUll(unchecked((ulong)BitConverter.DoubleToInt64Bits(current + value)));
         }
         /*--------------------- 変数を減少  -----------------------------*/
         private void ZzSubBvar(){   /* ;WORD $$SUB_BVAR */
@@ -1126,7 +1324,9 @@ namespace Mind8Kernel
             // double	fval;
             // fval = pop_float();
             // *AccessPointer.f -= fval;
-            throw new UnDefined(0);        
+            double value = PopFloat();
+            double current = BitConverter.Int64BitsToDouble(unchecked((long)ap.GetUll()));
+            ap.SetUll(unchecked((ulong)BitConverter.DoubleToInt64Bits(current - value)));
         }
         
         /*--------------------- バイトロード～ダブルロード  ----------------*/
@@ -1142,14 +1342,16 @@ namespace Mind8Kernel
             // USHORT  *varAddr;
             // varAddr = (USHORT *)READ_A_OF_S;
             // WRITE_L_OF_Q( *varAddr );
-            throw new UnDefined(0);
+            ushort value = BinaryPrimitives.ReadUInt16LittleEndian(ReadStringBytes(dtp.GetUlOffset(1), 2));
+            dtp.SetUlOffset(value, 1);
         }
         private void DoubleLoad(){    /* ;WORD ダブルロード .N */
                 /* Mコード=0x0091 */
             // ULONG  *varAddr;
             // varAddr = (ULONG *)READ_A_OF_S;
             // WRITE_L_OF_Q( *varAddr );
-            throw new UnDefined(0);
+            uint value = BinaryPrimitives.ReadUInt32LittleEndian(ReadStringBytes(dtp.GetUlOffset(1), 4));
+            dtp.SetUlOffset(value, 1);
         }
         /*--------------------- バイトストア～ダブルストア  ----------------*/
         private void ByteStore(){     /* ;WORD バイトストア NN */
@@ -1157,21 +1359,31 @@ namespace Mind8Kernel
             // UCHAR  *varAddr;
             // varAddr = (UCHAR *)POP_U_OF_Q;
             // *varAddr = POP_B_OF_Q;
-            throw new UnDefined(0);
+            uint address = PopIntegerOfQuad();
+            byte value = (byte)PopIntegerOfQuad();
+            WriteMemory(address, new byte[] { value });
         }
         private void WordStore(){     /* ;WORD ワードストア NN */
                 /* Mコード=0x0093 */
             // USHORT  *varAddr;
             // varAddr = (USHORT *)POP_U_OF_Q;
             // *varAddr = POP_W_OF_Q;
-            throw new UnDefined(0);
+            uint address = PopIntegerOfQuad();
+            ushort value = (ushort)PopIntegerOfQuad();
+            Span<byte> bytes = stackalloc byte[2];
+            BinaryPrimitives.WriteUInt16LittleEndian(bytes, value);
+            WriteMemory(address, bytes);
         }
         private void DoubleStore(){  /* ;WORD ダブルストア NN */
                 /* Mコード=0x0094 */
             // ULONG  	*varAddr;
             // varAddr = (ULONG *)POP_L_OF_Q;
             // *varAddr = POP_L_OF_Q;
-            throw new UnDefined(0);
+            uint address = PopIntegerOfQuad();
+            uint value = PopIntegerOfQuad();
+            Span<byte> bytes = stackalloc byte[4];
+            BinaryPrimitives.WriteUInt32LittleEndian(bytes, value);
+            WriteMemory(address, bytes);
         }
 
         /*--------------------- 数値定数  -------------------------------*/

@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Diagnostics;
+using System.Globalization;
 using System.Reflection;
 using Mind8Kernel;
 
@@ -52,6 +53,19 @@ var tests = new (string Name, Action Run)[]
     ("swap preserves both words of each value", TestSwap),
     ("memory clear addresses the data region", TestClearDataMemory),
     ("byte searches address data and count from the proper end", TestDataByteSearch),
+    ("string reference opcodes address data and local stack storage", TestStringReferenceStubs),
+    ("memory copy opcodes handle overlap, truncation, and remaining strings", TestMemoryCopyOpcodes),
+    ("indirect byte word and double memory access uses tagged addresses", TestIndirectMemoryAccess),
+    ("floating variable and test stack opcodes preserve 64-bit values", TestFloatingVariableOpcodes),
+    ("floating constants, stack addresses, and integer fraction parts match their layouts", TestFloatingConstantsAndStackInfo),
+    ("console numeric display and wordStore11 match C formatting", TestConsoleNumericDisplay),
+    ("floating parsing and integer fraction packing match stack and pointer layouts", TestAtofAndFractionPacking),
+    ("memory dump and return-stack monitor output match C formats", TestConsoleMemoryDisplays),
+    ("numeric-to-string conversions preserve signed values and C formatting", TestNumericStringConversions),
+    ("data-stack dump prints pairs and resets the stack", TestDataStackDump),
+    ("return-count and case opcodes preserve stack values and branch targets", TestReturnCountAndCaseOpcodes),
+    ("byte and word array addressing uses one-based indexes and element widths", TestByteWordArrayAccess),
+    ("extended arrays and structure records address the proper memory regions", TestExtendedArrayAndStructureAccess),
     ("hello fixture matches reference bytes", () => TestFixtureOutput("hello")),
     ("variables fixture matches reference bytes", () => TestFixtureOutput("variables")),
     ("binarysearch fixture matches native CRLF reference bytes", () => TestFixtureOutput("binarysearch", nativeNewlines: true)),
@@ -441,6 +455,18 @@ static void TestQuadArrayAccess()
     Assert(fixture.DataStack.PopUl() == 0x12345678 && fixture.DataStack.PopUl() == 0xABCDEF01,
         "quad array access did not preserve both words");
 
+    fixture = CreateDispatcher(0x00D7, 8, 0, 3, 0, 0x0048, 0x0017);
+    data = new AccessPointer();
+    data.SetupDataArray(32);
+    data.ResetDataIndex(16);
+    data.SetUll(0x12345678ABCDEF01);
+    SetField(typeof(Dispatcher), fixture.Dispatcher, "ap", data);
+    fixture.DataStack.PushUl(2);
+    fixture.DataStack.PushUl(0);
+    Assert(fixture.Dispatch() == 0, "quad array alias access failed");
+    Assert(fixture.DataStack.PopUl() == 0x12345678 && fixture.DataStack.PopUl() == 0xABCDEF01,
+        "quad array alias did not preserve both words");
+
     foreach (uint index in new uint[] { 0, 4 })
     {
         fixture = CreateDispatcher(0x00D6, 8, 0, 3, 0, 0x0017);
@@ -450,6 +476,234 @@ static void TestQuadArrayAccess()
         catch (TargetInvocationException exception) when (exception.InnerException is IndexOutOfRangeException) { continue; }
         throw new InvalidOperationException($"invalid array index {index} was accepted");
     }
+}
+
+static void TestByteWordArrayAccess()
+{
+    foreach ((ushort opcode, uint width, uint baseOffset, uint expected) in new (ushort, uint, uint, uint)[]
+        { (0x00D3, 1, 4, 0xAB), (0x00D4, 2, 8, 0xCDEF) })
+    {
+        DispatchFixture fixture = CreateDispatcher(opcode, (ushort)baseOffset, 0, 3, 0, 0x0048, 0x0017);
+        var data = new AccessPointer();
+        data.SetupDataArray(32);
+        data.ResetDataIndex(baseOffset + width);
+        if (width == 1) data.SetUb((byte)expected);
+        else data.SetUs((ushort)expected);
+        SetField(typeof(Dispatcher), fixture.Dispatcher, "ap", data);
+
+        fixture.DataStack.PushUl(2);
+        fixture.DataStack.PushUl(0);
+        Assert(fixture.Dispatch() == 0, $"opcode 0x{opcode:X4} dispatch failed");
+        uint actual = width == 1 ? data.GetUb() : data.GetUs();
+        Assert(actual == expected, $"opcode 0x{opcode:X4} used an incorrect array element offset");
+    }
+
+    foreach (ushort opcode in new ushort[] { 0x00D3, 0x00D4 })
+    {
+        DispatchFixture fixture = CreateDispatcher(opcode, 4, 0, 3, 0, 0x0048, 0x0017);
+        fixture.DataStack.PushUl(0);
+        fixture.DataStack.PushUl(0);
+        try { fixture.Dispatch(); }
+        catch (TargetInvocationException exception) when (exception.InnerException is IndexOutOfRangeException) { continue; }
+        throw new InvalidOperationException($"opcode 0x{opcode:X4} accepted a zero array index");
+    }
+}
+
+static void TestExtendedArrayAndStructureAccess()
+{
+    DispatchFixture fixture = CreateDispatcher();
+    AccessPointer data = AttachDataPointer(fixture, 64);
+    WriteMcodeUInts(fixture, 0x70, 8, 3, 3);
+    data.ResetDataIndex(14);
+    data.SetUb(0xA5);
+    PushIntegerQuad(fixture.DataStack, 3);
+    fixture.Functions[0x00D8]();
+    Assert(data.GetUb() == 0xA5, "variable-size array used an incorrect element stride");
+
+    foreach ((ushort opcode, ushort width, ushort size) in new (ushort, ushort, ushort)[]
+        { (0x00D9, 1, 1), (0x00DA, 2, 2), (0x00DB, 4, 4), (0x00DC, 8, 8), (0x00DD, 8, 8), (0x00DE, 3, 3) })
+    {
+        fixture = CreateDispatcher();
+        uint offset = 4;
+        if (opcode == 0x00DE) WriteMcodeUShorts(fixture, 0x70, (ushort)offset, 3, size);
+        else WriteMcodeUShorts(fixture, 0x70, (ushort)offset, 3);
+        for (int i = 0; i < 4; i++) fixture.ReturnStack.PushUl(0);
+        uint target = fixture.ReturnStack.GetCurrentStackPointer() * 4 + offset + width;
+        fixture.ReturnStack.WriteAddress(target, 0x302010, size);
+        PushIntegerQuad(fixture.DataStack, 2);
+        fixture.Functions[opcode]();
+        AccessPointer pointer = GetAccessPointer(fixture);
+        Assert(pointer.GetUb() == 0x10, $"local array opcode 0x{opcode:X4} used the wrong element width or stack region");
+    }
+
+    foreach ((ushort opcode, uint width, ulong value) in new (ushort, uint, ulong)[]
+        { (0x00DF, 1, 0xA5), (0x00E0, 2, 0xBEEF), (0x00E1, 4, 0x12345678),
+          (0x00E2, 8, 0x12345678ABCDEF01) })
+    {
+        fixture = CreateDispatcher();
+        byte[] table = CreateNumericArrayTable(width, value);
+        uint tableAddress = fixture.McodePointer.AppendBytes(table);
+        WriteMcodeUInts(fixture, 0x70, tableAddress);
+        AttachDataPointer(fixture, 16);
+        PushIntegerQuad(fixture.DataStack, 2);
+        fixture.Functions[opcode]();
+        AccessPointer pointer = GetAccessPointer(fixture);
+        ulong actual = width switch
+        {
+            1 => pointer.GetUb(),
+            2 => pointer.GetUs(),
+            4 => pointer.GetUl(),
+            _ => pointer.GetUll(),
+        };
+        Assert(actual == value, $"constant array opcode 0x{opcode:X4} selected the wrong element");
+    }
+
+    fixture = CreateDispatcher();
+    byte[] stringInfo = EncodeUInt32s(2, 0).Concat(new byte[] { (byte)'B', (byte)'C', 0 }).ToArray();
+    uint stringAddress = fixture.McodePointer.AppendBytes(stringInfo);
+    byte[] stringTable = new byte[14];
+    BinaryPrimitives.WriteUInt16LittleEndian(stringTable, 3);
+    BinaryPrimitives.WriteUInt32LittleEndian(stringTable.AsSpan(2), stringAddress);
+    BinaryPrimitives.WriteUInt32LittleEndian(stringTable.AsSpan(6), stringAddress);
+    BinaryPrimitives.WriteUInt32LittleEndian(stringTable.AsSpan(10), stringAddress);
+    uint constantStringTable = fixture.McodePointer.AppendBytes(stringTable);
+    WriteMcodeUInts(fixture, 0x70, constantStringTable);
+    AttachDataPointer(fixture, 16);
+    PushIntegerQuad(fixture.DataStack, 2);
+    fixture.Functions[0x00E3]();
+    AccessPointer stringPointer = GetAccessPointer(fixture);
+    Assert(stringPointer.GetUl() == 2
+        && fixture.McodePointer.GetUb(stringAddress + 8, 1)[0] == (byte)'B',
+        "constant string array did not point to the selected string header");
+
+    byte[] globalLayout = EncodeUInt32s(8, 2, 8, 3, 4, 0, 4);
+    fixture = CreateDispatcher();
+    uint globalTable = fixture.McodePointer.AppendBytes(globalLayout);
+    WriteMcodeUInts(fixture, 0x70, globalTable);
+    data = AttachDataPointer(fixture, 64);
+    data.ResetDataIndex(24);
+    data.SetUl(0xAABBCCDD);
+    PushIntegerQuad(fixture.DataStack, 3);
+    PushIntegerQuad(fixture.DataStack, 2);
+    fixture.Functions[0x00E4]();
+    Assert(data.GetUl() == 0xAABBCCDD, "global structure indexing selected the wrong field");
+
+    fixture = CreateDispatcher();
+    globalTable = fixture.McodePointer.AppendBytes(globalLayout);
+    WriteMcodeUInts(fixture, 0x70, globalTable);
+    PushIntegerQuad(fixture.DataStack, 3);
+    PushIntegerQuad(fixture.DataStack, 2);
+    fixture.Functions[0x00E5]();
+    Assert(fixture.DataStack.PopUl() == 4 && fixture.DataStack.PopUl() == 0x80000018,
+        "global structure record returned an incorrect address or size");
+
+    byte[] localLayout = EncodeUInt32s(2, 4, 3, 4, 0, 4);
+    foreach (ushort opcode in new ushort[] { 0x00E6, 0x00E7 })
+    {
+        fixture = CreateDispatcher();
+        uint localTable = fixture.McodePointer.AppendBytes(localLayout);
+        WriteMcodeUInts(fixture, 0x70, localTable);
+        WriteMcodeUShorts(fixture, 0x74, 4);
+        for (int i = 0; i < 6; i++) fixture.ReturnStack.PushUl(0);
+        uint target = fixture.ReturnStack.GetCurrentStackPointer() * 4 + 16;
+        fixture.ReturnStack.WriteAddress(target, 0xCAFEBABE, 4);
+        PushIntegerQuad(fixture.DataStack, 3);
+        PushIntegerQuad(fixture.DataStack, 2);
+        fixture.Functions[opcode]();
+        if (opcode == 0x00E6)
+            Assert(GetAccessPointer(fixture).GetUl() == 0xCAFEBABE,
+                "local structure indexing selected the wrong field");
+        else
+            Assert(fixture.DataStack.PopUl() == 4
+                && fixture.DataStack.PopUl() == (0xC0000000 | target),
+                "local structure record returned an incorrect address or size");
+    }
+
+    fixture = CreateDispatcher();
+    data = AttachDataPointer(fixture, 32);
+    data.ResetDataIndex(10);
+    data.SetUb(0x5A);
+    WriteMcodeUInts(fixture, 0x70, 2);
+    fixture.DataStack.PushUl(0x80000008);
+    fixture.DataStack.PushUl(4);
+    fixture.Functions[0x00E8]();
+    Assert(GetAccessPointer(fixture).GetUb() == 0x5A,
+        "short temporary variable repoint used the wrong byte offset");
+
+    fixture = CreateDispatcher();
+    WriteMcodeUInts(fixture, 0x70, 2, 3);
+    fixture.DataStack.PushUl(0x80000008);
+    fixture.DataStack.PushUl(4);
+    fixture.Functions[0x00E9]();
+    Assert(fixture.DataStack.PopUl() == 3 && fixture.DataStack.PopUl() == 0x8000000A,
+        "short temporary record repoint returned an incorrect address or size");
+
+    byte[] temporaryLayout = EncodeUInt32s(4, 2, 4, 3, 4, 0, 4);
+    fixture = CreateDispatcher();
+    uint temporaryTable = fixture.McodePointer.AppendBytes(temporaryLayout);
+    WriteMcodeUInts(fixture, 0x70, temporaryTable);
+    data = AttachDataPointer(fixture, 32);
+    data.ResetDataIndex(24);
+    data.SetUl(0xDEADBEEF);
+    fixture.DataStack.PushUl(0x80000008);
+    fixture.DataStack.PushUl(4);
+    PushIntegerQuad(fixture.DataStack, 3);
+    PushIntegerQuad(fixture.DataStack, 2);
+    fixture.Functions[0x00EA]();
+    Assert(GetAccessPointer(fixture).GetUl() == 0xDEADBEEF,
+        "indexed temporary variable repoint selected the wrong field");
+
+    fixture = CreateDispatcher();
+    temporaryTable = fixture.McodePointer.AppendBytes(temporaryLayout);
+    WriteMcodeUInts(fixture, 0x70, temporaryTable);
+    fixture.DataStack.PushUl(0x80000008);
+    fixture.DataStack.PushUl(4);
+    PushIntegerQuad(fixture.DataStack, 3);
+    PushIntegerQuad(fixture.DataStack, 2);
+    fixture.Functions[0x00EB]();
+    Assert(fixture.DataStack.PopUl() == 4 && fixture.DataStack.PopUl() == 0x80000018,
+        "indexed temporary record repoint returned an incorrect address or size");
+}
+
+static AccessPointer AttachDataPointer(DispatchFixture fixture, uint size)
+{
+    var pointer = new AccessPointer();
+    pointer.SetupDataArray(size);
+    SetField(typeof(Dispatcher), fixture.Dispatcher, "ap", pointer);
+    return pointer;
+}
+
+static AccessPointer GetAccessPointer(DispatchFixture fixture) =>
+    (AccessPointer)typeof(Dispatcher).GetField("ap", BindingFlags.Instance | BindingFlags.NonPublic)!
+        .GetValue(fixture.Dispatcher)!;
+
+static void WriteMcodeUInts(DispatchFixture fixture, uint offset, params uint[] values) =>
+    fixture.McodePointer.WriteBytes(offset, EncodeUInt32s(values));
+
+static void WriteMcodeUShorts(DispatchFixture fixture, uint offset, params ushort[] values)
+{
+    byte[] bytes = new byte[checked(values.Length * 2)];
+    for (int i = 0; i < values.Length; i++)
+        BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(i * 2, 2), values[i]);
+    fixture.McodePointer.WriteBytes(offset, bytes);
+}
+
+static byte[] EncodeUInt32s(params uint[] values)
+{
+    byte[] bytes = new byte[checked(values.Length * 4)];
+    for (int i = 0; i < values.Length; i++)
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(i * 4, 4), values[i]);
+    return bytes;
+}
+
+static byte[] CreateNumericArrayTable(uint width, ulong value)
+{
+    byte[] bytes = new byte[checked(2 + (int)(width * 3))];
+    BinaryPrimitives.WriteUInt16LittleEndian(bytes, 3);
+    for (uint index = 0; index < 3; index++)
+        for (uint offset = 0; offset < width; offset++)
+            bytes[checked(2 + (int)(index * width + offset))] = (byte)(value >> checked((int)(offset * 8)));
+    return bytes;
 }
 
 static void TestBooleanOperations()
@@ -945,6 +1199,582 @@ static void TestDataByteSearch()
         Assert(fixture.DataStack.PopUl() == 0 && fixture.DataStack.PopUl() == expected,
             "data byte search returned an incorrect position");
     }
+}
+
+static void TestStringReferenceStubs()
+{
+    DispatchFixture fixture = CreateDispatcher();
+    var data = new AccessPointer();
+    data.SetupDataArray(32);
+    data.SetUl(3);
+    data.ResetDataIndex(4);
+    data.SetUl(2);
+    data.ResetDataIndex(10);
+    data.SetUl(0x005A5948);
+    data.ResetDataIndex(0);
+    SetField(typeof(Dispatcher), fixture.Dispatcher, "ap", data);
+
+    fixture.Functions[0x004B]();
+    Assert(fixture.DataStack.PopUl() == 3, "indirect string length differs");
+    uint address = fixture.DataStack.PopUl();
+    Assert(address == 0x8000000A, "indirect string address did not include its header and margin");
+
+    fixture = CreateDispatcher(0x0059, 0, 0x0017);
+    fixture.ReturnStack.MoveStackPointer(-4);
+    fixture.ReturnStack.WriteLocal(0, 2, 4);
+    fixture.ReturnStack.WriteLocal(4, 1, 4);
+    fixture.ReturnStack.WriteLocal(9, 0x00434241, 4);
+    Assert(fixture.Dispatch() == 0, "local string reference dispatch failed");
+    Assert(fixture.DataStack.PopUl() == 2, "local string length differs");
+    address = fixture.DataStack.PopUl();
+    Assert((address & 0xC0000000) == 0xC0000000, "local string address lost its return-stack region");
+    Assert(fixture.ReturnStack.GetBytes(address & 0x3FFFFFFF, 2).SequenceEqual(new byte[] { 0x41, 0x42 }),
+        "local string address did not point past its header and margin");
+}
+
+static void TestMemoryCopyOpcodes()
+{
+    foreach (ushort opcode in new ushort[] { 0x0060, 0x0061 })
+    {
+        DispatchFixture fixture = CreateDispatcher();
+        var data = new AccessPointer();
+        data.SetupDataArray(32);
+        data.SetUll(0x0807060504030201);
+        SetField(typeof(Dispatcher), fixture.Dispatcher, "ap", data);
+
+        fixture.DataStack.PushUl(0x80000000);
+        fixture.DataStack.PushUl(6);
+        fixture.DataStack.PushUl(0x80000002);
+        fixture.DataStack.PushUl(4);
+        fixture.Functions[opcode]();
+        Assert(data.GetBytes(0, 8).SequenceEqual(new byte[] { 1, 2, 1, 2, 3, 4, 7, 8 }),
+            $"opcode 0x{opcode:X4} did not perform a truncated overlapping move");
+        Assert(fixture.DataStack.IsCurrentStackPointerInit(), $"opcode 0x{opcode:X4} did not consume both string infos");
+    }
+
+    DispatchFixture resultFixture = CreateDispatcher();
+    var resultData = new AccessPointer();
+    resultData.SetupDataArray(32);
+    resultData.SetUll(0x0000000000332211);
+    SetField(typeof(Dispatcher), resultFixture.Dispatcher, "ap", resultData);
+    resultFixture.DataStack.PushUl(0x80000000);
+    resultFixture.DataStack.PushUl(3);
+    resultFixture.DataStack.PushUl(0x80000010);
+    resultFixture.DataStack.PushUl(6);
+    resultFixture.Functions[0x0062]();
+    Assert(resultData.GetBytes(16, 3).SequenceEqual(new byte[] { 0x11, 0x22, 0x33 }),
+        "memory-copy-with-result did not copy the source bytes");
+    Assert(resultFixture.DataStack.PopUl() == 0, "copy byte-count Q fraction differs");
+    Assert(resultFixture.DataStack.PopUl() == 3, "copy byte-count differs");
+    Assert(resultFixture.DataStack.PopUl() == 3, "remaining target length differs");
+    Assert(resultFixture.DataStack.PopUl() == 0x80000013, "remaining target address differs");
+}
+
+static void TestIndirectMemoryAccess()
+{
+    foreach ((ushort opcode, uint expected) in new (ushort, uint)[]
+        { (0x008F, 0xEF), (0x0090, 0xCDEF), (0x0091, 0x89ABCDEF) })
+    {
+        DispatchFixture fixture = CreateDispatcher();
+        var data = new AccessPointer();
+        data.SetupDataArray(16);
+        data.SetUll(0x0123456789ABCDEF);
+        SetField(typeof(Dispatcher), fixture.Dispatcher, "ap", data);
+        fixture.DataStack.PushUl(0x80000000);
+        fixture.DataStack.PushUl(0);
+        fixture.Functions[opcode]();
+        Assert(fixture.DataStack.PopUl() == 0 && fixture.DataStack.PopUl() == expected,
+            $"opcode 0x{opcode:X4} loaded an incorrect value");
+    }
+
+    foreach ((ushort opcode, uint value, uint expected) in new (ushort, uint, uint)[]
+        { (0x0092, 0x123456EF, 0xEF), (0x0093, 0x1234CDEF, 0xCDEF), (0x0094, 0x89ABCDEF, 0x89ABCDEF) })
+    {
+        DispatchFixture fixture = CreateDispatcher();
+        var data = new AccessPointer();
+        data.SetupDataArray(16);
+        SetField(typeof(Dispatcher), fixture.Dispatcher, "ap", data);
+        fixture.DataStack.PushUl(value);
+        fixture.DataStack.PushUl(0);
+        fixture.DataStack.PushUl(0x80000004);
+        fixture.DataStack.PushUl(0);
+        fixture.Functions[opcode]();
+        Assert(data.GetBytes(4, 4).SequenceEqual(BitConverter.GetBytes(expected)),
+            $"opcode 0x{opcode:X4} stored an incorrect value");
+        Assert(fixture.DataStack.IsCurrentStackPointerInit(), $"opcode 0x{opcode:X4} did not consume both values");
+    }
+}
+
+static void TestFloatingVariableOpcodes()
+{
+    DispatchFixture fixture = CreateDispatcher();
+    var data = new AccessPointer();
+    data.SetupDataArray(8);
+    data.SetUll(unchecked((ulong)BitConverter.DoubleToInt64Bits(1.5)));
+    SetField(typeof(Dispatcher), fixture.Dispatcher, "ap", data);
+
+    PushFloat(fixture.DataStack, 2.25);
+    fixture.Functions[0x0089]();
+    Assert(BitConverter.Int64BitsToDouble(unchecked((long)data.GetUll())) == 3.75,
+        "floating variable addition differs");
+    PushFloat(fixture.DataStack, 0.5);
+    fixture.Functions[0x008E]();
+    Assert(BitConverter.Int64BitsToDouble(unchecked((long)data.GetUll())) == 3.25,
+        "floating variable subtraction differs");
+    fixture.Functions[0x0073]();
+    Assert(data.GetUll() == 0, "floating variable clear did not zero all 64 bits");
+
+    fixture = CreateDispatcher();
+    PushFloat(fixture.DataStack, 12.5);
+    TextWriter original = Console.Out;
+    using var output = new StringWriter(CultureInfo.InvariantCulture);
+    try
+    {
+        Console.SetOut(output);
+        fixture.Functions[0x0084]();
+    }
+    finally
+    {
+        Console.SetOut(original);
+    }
+    Assert(PopFloat(fixture.DataStack) == 12.5, "test float opcode did not restore its 64-bit value");
+    Assert(output.ToString().Contains("12.50000", StringComparison.Ordinal),
+        "test float opcode did not report the decimal value");
+
+    fixture = CreateDispatcher();
+    fixture.DataStack.PushUl(0x11223344);
+    fixture.DataStack.PushUl(0x55667788);
+    original = Console.Out;
+    using var quadOutput = new StringWriter(CultureInfo.InvariantCulture);
+    try
+    {
+        Console.SetOut(quadOutput);
+        fixture.Functions[0x0083]();
+    }
+    finally
+    {
+        Console.SetOut(original);
+    }
+    Assert(fixture.DataStack.PopUl() == 0x55667788 && fixture.DataStack.PopUl() == 0x3344,
+        "test quad opcode did not preserve the C helper's 64-bit stack layout");
+    Assert(quadOutput.ToString().Contains("5566778811223344", StringComparison.Ordinal),
+        "test quad opcode did not report the 64-bit value");
+}
+
+static void TestFloatingConstantsAndStackInfo()
+{
+    var constants = new (ushort Opcode, double Value)[]
+    {
+        (0x00A7, 0.0), (0x00A8, 1.0), (0x00A9, Math.E),
+        (0x00AA, Math.Log2(Math.E)), (0x00AB, Math.Log10(Math.E)),
+        (0x00AC, Math.Log(2.0)), (0x00AD, Math.Log(10.0)),
+        (0x00AE, Math.PI), (0x00AF, Math.PI / 2.0),
+        (0x00B0, Math.PI / 4.0), (0x00B1, 1.0 / Math.PI),
+        (0x00B2, 2.0 / Math.PI), (0x00B3, 2.0 / Math.Sqrt(Math.PI)),
+        (0x00B4, Math.Sqrt(2.0)), (0x00B5, 1.0 / Math.Sqrt(2.0))
+    };
+
+    foreach ((ushort opcode, double expected) in constants)
+    {
+        DispatchFixture fixture = CreateDispatcher();
+        fixture.Functions[opcode]();
+        double actual = PopFloat(fixture.DataStack);
+        Assert(Math.Abs(actual - expected) <= Math.Abs(expected) * 1e-15 + 1e-15,
+            $"opcode 0x{opcode:X4} pushed {actual} instead of {expected}");
+        Assert(fixture.DataStack.IsCurrentStackPointerInit(),
+            $"opcode 0x{opcode:X4} did not push one 64-bit value");
+    }
+
+    DispatchFixture pointers = CreateDispatcher();
+    var dataArea = new AccessPointer();
+    dataArea.SetupDataArray(32);
+    SetField(typeof(Dispatcher), pointers.Dispatcher, "ap", dataArea);
+    pointers.DataStack.PushUl(0x1234);
+    pointers.ReturnStack.PushUl(0x5678);
+    pointers.Functions[0x00B6]();
+    uint dataBase = pointers.DataStack.PopUl();
+    uint dataCurrent = pointers.DataStack.PopUl();
+    Assert(dataCurrent == (0x40000000 | ((pointers.InitialDataStackPointer - 1) * 4))
+        && dataBase == (0x40000000 | (pointers.InitialDataStackPointer * 4)),
+        "data-stack pointer opcode returned incorrect current/base addresses");
+    pointers.Functions[0x00B7]();
+    uint returnBase = pointers.DataStack.PopUl();
+    uint returnCurrent = pointers.DataStack.PopUl();
+    Assert(returnCurrent == (0xC0000000 | ((pointers.InitialReturnStackPointer - 1) * 4))
+        && returnBase == (0xC0000000 | (pointers.InitialReturnStackPointer * 4)),
+        "return-stack pointer opcode returned incorrect current/base addresses");
+    pointers.Functions[0x00B8]();
+    Assert(pointers.DataStack.PopUl() == 32
+        && pointers.DataStack.PopUl() == 0x80000000,
+        "data-area opcode returned incorrect address/size");
+
+    DispatchFixture parts = CreateDispatcher();
+    parts.DataStack.PushUl(0x11111111);
+    parts.DataStack.PushUl(0x22222222);
+    parts.Functions[0x00B9]();
+    Assert(parts.DataStack.GetUlOffset(1) == 0x11111111 && parts.DataStack.GetUlOffset(0) == 0,
+        "fraction clear did not preserve the integer part");
+    parts.DataStack.SetUlOffset(0x33333333, 0);
+    parts.Functions[0x00BA]();
+    Assert(parts.DataStack.GetUlOffset(1) == 0x33333333 && parts.DataStack.GetUlOffset(0) == 0,
+        "fraction move did not transfer to the integer part");
+    parts.DataStack.SetUlOffset(0x44444444, 0);
+    parts.Functions[0x00BB]();
+    Assert(parts.DataStack.GetUlOffset(1) == 0 && parts.DataStack.GetUlOffset(0) == 0x44444444,
+        "integer clear did not preserve the fraction part");
+}
+
+static void PushFloat(StackPointer stack, double value)
+{
+    ulong bits = unchecked((ulong)BitConverter.DoubleToInt64Bits(value));
+    stack.PushUl((uint)(bits >> 32));
+    stack.PushUl((uint)bits);
+}
+
+static void TestConsoleNumericDisplay()
+{
+    DispatchFixture fixture = CreateDispatcher();
+    var data = new AccessPointer();
+    data.SetupDataArray(16);
+    data.SetUll(0x6948);
+    SetField(typeof(Dispatcher), fixture.Dispatcher, "ap", data);
+
+    using var output = new StringWriter(CultureInfo.InvariantCulture);
+    TextWriter original = Console.Out;
+    try
+    {
+        Console.SetOut(output);
+        fixture.DataStack.PushUl(0x80000000);
+        fixture.DataStack.PushUl(2);
+        fixture.Functions[0x00C2]();
+
+        PushIntegerQuad(fixture.DataStack, 0x41);
+        fixture.Functions[0x00C3]();
+        PushIntegerQuad(fixture.DataStack, 0x82A0);
+        fixture.Functions[0x00C3]();
+        PushIntegerQuad(fixture.DataStack, 0x1F);
+        fixture.Functions[0x00C5]();
+        PushIntegerQuad(fixture.DataStack, 0xA7);
+        fixture.Functions[0x00C6]();
+        PushIntegerQuad(fixture.DataStack, 0xFA12);
+        fixture.Functions[0x00C7]();
+        PushIntegerQuad(fixture.DataStack, 0xABCDEF12);
+        fixture.Functions[0x00C8]();
+        PushFloat(fixture.DataStack, 1.25);
+        PushIntegerQuad(fixture.DataStack, 2);
+        fixture.Functions[0x00CB]();
+        PushFloat(fixture.DataStack, 1.25);
+        PushIntegerQuad(fixture.DataStack, 2);
+        fixture.Functions[0x00CC]();
+        fixture.DataStack.PushUl(0x1234);
+        fixture.DataStack.PushUl(0x56);
+        fixture.Functions[0x00CE]();
+    }
+    finally
+    {
+        Console.SetOut(original);
+    }
+    string actualOutput = output.ToString();
+    Assert(actualOutput == "\"Hi\"AあFA7FA12ABCDEF121.251.25e+00000001234|00000056",
+        $"numeric/string display opcodes did not match their expected format: [{actualOutput.Replace("\r", "\\r").Replace("\n", "\\n")}]");
+    Assert(fixture.DataStack.IsCurrentStackPointerInit(),
+        "display opcodes did not consume their stack arguments");
+
+    fixture = CreateDispatcher();
+    data = new AccessPointer();
+    data.SetupDataArray(8);
+    SetField(typeof(Dispatcher), fixture.Dispatcher, "ap", data);
+    PushIntegerQuad(fixture.DataStack, 0x41);
+    PushIntegerQuad(fixture.DataStack, 0x80000000);
+    fixture.Functions[0x00C0]();
+    Assert(data.GetBytes(0, 2).SequenceEqual(new byte[] { 0x41, 0x11 }),
+        "wordStore11 did not add the debug high byte for an 8-bit value");
+}
+
+static void TestAtofAndFractionPacking()
+{
+    DispatchFixture fixture = CreateDispatcher();
+    var data = new AccessPointer();
+    data.SetupDataArray(64);
+    byte[] number = System.Text.Encoding.ASCII.GetBytes("  -12.5e2rest");
+    for (uint i = 0; i < number.Length; i++)
+    {
+        data.ResetDataIndex(i);
+        data.SetUb(number[i]);
+    }
+    SetField(typeof(Dispatcher), fixture.Dispatcher, "ap", data);
+
+    fixture.DataStack.PushUl(0x80000000);
+    fixture.DataStack.PushUl((uint)number.Length);
+    PushIntegerQuad(fixture.DataStack, 0x80000020);
+    fixture.Functions[0x00A6]();
+    Assert(PopFloat(fixture.DataStack) == -1250.0, "c_atof parsed an incorrect numeric prefix");
+    Assert(BitConverter.ToUInt32(data.GetBytes(32, 4)) == 0x80000009,
+        "c_atof did not store the end pointer after the parsed prefix");
+    Assert(fixture.DataStack.IsCurrentStackPointerInit(),
+        "c_atof did not consume its arguments and return one double");
+
+    fixture = CreateDispatcher();
+    fixture.DataStack.PushUl(0x12345678);
+    fixture.DataStack.PushUl(0x9ABCDEF0);
+    fixture.Functions[0x00BC]();
+    Assert(fixture.DataStack.PopUl() == 0x9ABCDEF0 && fixture.DataStack.PopUl() == 0x12345678,
+        "integer-to-fraction pack did not preserve the upper/lower words");
+
+    fixture = CreateDispatcher();
+    fixture.DataStack.PushUl(0x12345678);
+    fixture.DataStack.PushUl(0x9ABCDEF0);
+    fixture.Functions[0x00BD]();
+    Assert(fixture.DataStack.PopUl() == 0 && fixture.DataStack.PopUl() == 0x9ABCDEF0
+        && fixture.DataStack.PopUl() == 0 && fixture.DataStack.PopUl() == 0x12345678,
+        "integer-to-fraction unpack did not produce two zero-fraction values");
+}
+
+static void TestConsoleMemoryDisplays()
+{
+    DispatchFixture fixture = CreateDispatcher();
+    var data = new AccessPointer();
+    data.SetupDataArray(32);
+    data.SetUll(0x0807060504030201);
+    SetField(typeof(Dispatcher), fixture.Dispatcher, "ap", data);
+
+    TextWriter original = Console.Out;
+    using var output = new StringWriter(CultureInfo.InvariantCulture);
+    try
+    {
+        Console.SetOut(output);
+        fixture.DataStack.PushUl(0x80000000);
+        fixture.DataStack.PushUl(3);
+        fixture.Functions[0x00CF]();
+        fixture.DataStack.PushUl(0x80000000);
+        fixture.DataStack.PushUl(3);
+        fixture.Functions[0x00D0]();
+        fixture.Functions[0x00D2]();
+    }
+    finally
+    {
+        Console.SetOut(original);
+    }
+
+    string lineEnd = Environment.NewLine;
+    string expected = $"80000000 : 01 02 03{lineEnd}80000000 : 0201 0403{lineEnd}"
+        + $"ReturnStackPointer={0xC0000000u | (fixture.InitialReturnStackPointer * 4):X8} "
+        + $"(base={0xC0000000u | (fixture.InitialReturnStackPointer * 4):X8}){lineEnd}";
+    Assert(output.ToString() == expected, "memory/return-stack display output differed");
+    Assert(fixture.DataStack.IsCurrentStackPointerInit(),
+        "memory display opcodes did not consume their stack arguments");
+}
+
+static void TestNumericStringConversions()
+{
+    DispatchFixture fixture = CreateDispatcher();
+    var data = new AccessPointer();
+    data.SetupDataArray(128);
+    SetField(typeof(Dispatcher), fixture.Dispatcher, "ap", data);
+
+    long integer = long.MinValue;
+    fixture.DataStack.PushUl(unchecked((uint)((ulong)integer >> 32)));
+    fixture.DataStack.PushUl(unchecked((uint)integer));
+    fixture.DataStack.PushUl(0x80000000);
+    fixture.DataStack.PushUl(32);
+    fixture.Functions[0x00CA]();
+
+    uint integerLength = fixture.DataStack.PopUl();
+    uint integerAddress = fixture.DataStack.PopUl();
+    Assert(integerAddress == 0x80000008 && integerLength == 20,
+        "quad conversion returned an incorrect string reference");
+    Assert(System.Text.Encoding.ASCII.GetString(data.GetBytes(8, integerLength)) == "-9223372036854775808"
+        && System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(data.GetBytes(0, 4)) == integerLength,
+        "quad conversion did not store the signed decimal value and length");
+
+    PushDouble(fixture.DataStack, 12.5);
+    PushIntegerQuad(fixture.DataStack, 8);
+    PushIntegerQuad(fixture.DataStack, 2);
+    fixture.DataStack.PushUl(0x80000020);
+    fixture.DataStack.PushUl(16);
+    PushIntegerQuad(fixture.DataStack, 0);
+    fixture.Functions[0x00CD]();
+
+    uint fixedLength = fixture.DataStack.PopUl();
+    uint fixedAddress = fixture.DataStack.PopUl();
+    Assert(fixedAddress == 0x80000028 && fixedLength == 8
+        && System.Text.Encoding.ASCII.GetString(data.GetBytes(40, fixedLength)) == "   12.50",
+        "fraction conversion did not apply fixed precision and field width");
+
+    PushDouble(fixture.DataStack, 12.5);
+    PushIntegerQuad(fixture.DataStack, 0);
+    PushIntegerQuad(fixture.DataStack, 2);
+    fixture.DataStack.PushUl(0x80000040);
+    fixture.DataStack.PushUl(6);
+    PushIntegerQuad(fixture.DataStack, 1);
+    fixture.Functions[0x00CD]();
+
+    uint truncatedLength = fixture.DataStack.PopUl();
+    uint truncatedAddress = fixture.DataStack.PopUl();
+    Assert(truncatedAddress == 0x80000048 && truncatedLength == 5
+        && System.Text.Encoding.ASCII.GetString(data.GetBytes(72, truncatedLength)) == "1.25e",
+        "fraction conversion did not truncate to the buffer size");
+}
+
+static void TestDataStackDump()
+{
+    DispatchFixture fixture = CreateDispatcher(0x00D1, 0x0017);
+    fixture.DataStack.PushUl(0x11223344);
+    fixture.DataStack.PushUl(0xAABBCCDD);
+
+    TextWriter original = Console.Out;
+    using var output = new StringWriter(CultureInfo.InvariantCulture);
+    try
+    {
+        Console.SetOut(output);
+        Assert(fixture.Dispatch() == 0, "data-stack dump dispatch failed");
+    }
+    finally
+    {
+        Console.SetOut(original);
+    }
+
+    string newline = Environment.NewLine;
+    string expected = $"-------------------------------------------------------{newline}"
+        + $"sp=40000038 base=40000040{newline}"
+        + $"スタック内容： 11223344|AABBCCDD  {newline}"
+        + $"-------------------------------------------------------{newline}";
+    Assert(output.ToString() == expected, "data-stack dump output differed from the C format");
+    Assert(fixture.DataStack.IsCurrentStackPointerInit(),
+        "data-stack dump did not reset the data stack");
+
+    fixture = CreateDispatcher(0x00D1, 0x0017);
+    fixture.DataStack.PushUl(0x12345678);
+    output.GetStringBuilder().Clear();
+    try
+    {
+        Console.SetOut(output);
+        Assert(fixture.Dispatch() == 0, "invalid data-stack dump dispatch failed");
+    }
+    finally
+    {
+        Console.SetOut(original);
+    }
+    Assert(output.ToString().Contains("スタックポインタが異常です．", StringComparison.Ordinal)
+        && fixture.DataStack.IsCurrentStackPointerInit(),
+        "data-stack dump did not detect and reset a non-quad-aligned stack");
+}
+
+static void TestReturnCountAndCaseOpcodes()
+{
+    foreach ((ushort opcode, uint expected) in new (ushort, uint)[]
+        { (0x00F2, 0), (0x00F3, 2), (0x00F4, 3), (0x00F5, 2),
+          (0x00F6, 1), (0x00F7, 3), (0x00F8, 5) })
+    {
+        DispatchFixture fixture = CreateDispatcher();
+        fixture.ReturnStack.PushUl(5);
+        fixture.ReturnStack.PushUl(2);
+        fixture.ReturnStack.PushUl(3);
+        fixture.ReturnStack.PushUl(1);
+        fixture.Functions[opcode]();
+        Assert(fixture.DataStack.PopUl() == 0 && fixture.DataStack.PopUl() == expected,
+            $"return-count opcode 0x{opcode:X4} read the wrong loop level");
+    }
+
+    foreach ((uint value, uint expected) in new (uint, uint)[] { (0, 0), (0xFFFFFFFF, 1) })
+    {
+        DispatchFixture fixture = CreateDispatcher();
+        fixture.DataStack.PushUl(value);
+        fixture.DataStack.PushUl(0x12345678);
+        fixture.Functions[0x00FF]();
+        Assert(fixture.DataStack.GetUlOffset(1) == expected
+            && fixture.DataStack.GetUlOffset(0) == 0x12345678,
+            "isTrue did not update only the integer word");
+    }
+
+    DispatchFixture select = CreateDispatcher();
+    WriteRelativeDispatchTable(select, 0x80, 0x90, 0xA0, 0xB0);
+    PushIntegerQuad(select.DataStack, 2);
+    select.Functions[0x00F9]();
+    Assert(select.McodePointer.GetMcodeIndex() == 0xA0,
+        "select did not branch to the one-based table entry");
+
+    DispatchFixture numericCase = CreateDispatcher();
+    WriteRelativeDispatchTable(numericCase, 0x80, 0x90, 0xA0, 0xB0);
+    WriteMcodeUInts(numericCase, 0x90, 10);
+    WriteMcodeUInts(numericCase, 0xA0, 42);
+    PushIntegerQuad(numericCase.DataStack, 42);
+    numericCase.Functions[0x00FA]();
+    Assert(numericCase.McodePointer.GetMcodeIndex() == 0xA4,
+        "double case did not select a matching value");
+
+    DispatchFixture numericRange = CreateDispatcher();
+    WriteRelativeDispatchTable(numericRange, 0x80, 0x90, 0xA0, 0xB0);
+    WriteMcodeUInts(numericRange, 0x90, 20);
+    WriteMcodeUInts(numericRange, 0xA0, 40);
+    PushIntegerQuad(numericRange.DataStack, 30);
+    numericRange.Functions[0x00FB]();
+    Assert(numericRange.McodePointer.GetMcodeIndex() == 0xA4,
+        "double range did not select the first inclusive upper bound");
+
+    DispatchFixture stringCase = CreateDispatcher();
+    WriteRelativeDispatchTable(stringCase, 0x80, 0x90, 0xA0);
+    WriteMcodeUShorts(stringCase, 0x90, 3);
+    stringCase.McodePointer.WriteBytes(0x92, [(byte)'c', (byte)'a', (byte)'t', 0]);
+    var data = AttachDataPointer(stringCase, 16);
+    for (uint i = 0; i < 3; i++)
+    {
+        data.ResetDataIndex(i);
+        data.SetUb((byte)"cat"[(int)i]);
+    }
+    stringCase.DataStack.PushUl(0x80000000);
+    stringCase.DataStack.PushUl(3);
+    stringCase.Functions[0x00FC]();
+    Assert(stringCase.McodePointer.GetMcodeIndex() == 0x96,
+        "string case did not skip the matching literal");
+
+    DispatchFixture defaultCase = CreateDispatcher();
+    WriteRelativeDispatchTable(defaultCase, 0x80, 0x90, 0xA0);
+    WriteMcodeUShorts(defaultCase, 0x90, 3);
+    defaultCase.McodePointer.WriteBytes(0x92, [(byte)'c', (byte)'a', (byte)'t', 0]);
+    data = AttachDataPointer(defaultCase, 16);
+    for (uint i = 0; i < 3; i++)
+    {
+        data.ResetDataIndex(i);
+        data.SetUb((byte)"dog"[(int)i]);
+    }
+    defaultCase.DataStack.PushUl(0x80000000);
+    defaultCase.DataStack.PushUl(3);
+    defaultCase.Functions[0x00FC]();
+    Assert(defaultCase.McodePointer.GetMcodeIndex() == 0xA0,
+        "string case did not select the default table entry");
+}
+
+static void WriteRelativeDispatchTable(DispatchFixture fixture, uint table, params uint[] branches)
+{
+    short tableOffset = checked((short)((long)table - 0x70));
+    WriteMcodeUShorts(fixture, 0x70, unchecked((ushort)tableOffset));
+    ushort[] words = new ushort[branches.Length + 1];
+    words[0] = checked((ushort)branches.Length);
+    uint offsets = table + 2;
+    for (int i = 0; i < branches.Length; i++)
+        words[i + 1] = unchecked((ushort)checked((short)((long)branches[i] - offsets)));
+    WriteMcodeUShorts(fixture, table, words);
+}
+
+static void PushIntegerQuad(StackPointer stack, uint value)
+{
+    stack.PushUl(value);
+    stack.PushUl(0);
+}
+
+static void PushDouble(StackPointer stack, double value)
+{
+    ulong bits = unchecked((ulong)BitConverter.DoubleToInt64Bits(value));
+    stack.PushUl((uint)(bits >> 32));
+    stack.PushUl((uint)bits);
+}
+
+static double PopFloat(StackPointer stack)
+{
+    uint low = stack.PopUl();
+    uint high = stack.PopUl();
+    return BitConverter.Int64BitsToDouble(unchecked((long)(((ulong)high << 32) | low)));
 }
 
 static void TestFixtureOutput(string name, bool nativeNewlines = false)

@@ -77,10 +77,18 @@ if (cEntries.length === 0 || csEntries.length === 0) {
 const cById = new Map(cEntries.map((entry) => [entry.id, entry.name]));
 const csById = new Map(csEntries.map((entry) => [entry.id, entry.name]));
 const normalize = (name) => name.toLowerCase().replaceAll("_", "");
+const cSharpHandlerAliases = new Map([
+    [0x0296, "BinaryMode"],
+    [0x0297, "TextMode"],
+    [0x0298, "SetFileMode"],
+    [0x02CE, "HighSecurityMode"],
+]);
 const missing = cEntries.filter((entry) => !csById.has(entry.id));
 const extra = csEntries.filter((entry) => !cById.has(entry.id));
 const mismatches = csEntries
-    .filter((entry) => cById.has(entry.id) && normalize(cById.get(entry.id)) !== normalize(entry.name))
+    .filter((entry) => cById.has(entry.id)
+        && normalize(cById.get(entry.id)) !== normalize(entry.name)
+        && cSharpHandlerAliases.get(entry.id) !== entry.name)
     .map((entry) => ({ id: formatId(entry.id), c: cById.get(entry.id), csharp: entry.name }));
 const duplicateCIds = getDuplicateIds(cEntries);
 const duplicateCsIds = getDuplicateIds(csEntries);

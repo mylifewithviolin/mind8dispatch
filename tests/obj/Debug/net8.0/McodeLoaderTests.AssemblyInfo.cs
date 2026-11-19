@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("McodeLoaderTests")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+22746be3bd47d7ee664d119aedb4250b43d1bc02")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+57094be8f5e2f851157c06c6b40325320d7242fe")]
 [assembly: System.Reflection.AssemblyProductAttribute("McodeLoaderTests")]
 [assembly: System.Reflection.AssemblyTitleAttribute("McodeLoaderTests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -8,6 +8,7 @@ namespace Mind8Kernel
         private uint stackIndex;
         private uint stackPointer;
         public byte[] dataArray =[];
+        internal uint StackSize => stackMaxSize;
         public void SetupStackArray(uint size, uint underflowMargin = 0){
             if ((underflowMargin & 3) != 0)
                 throw new ArgumentOutOfRangeException(nameof(underflowMargin), "Stack margin must be word-aligned.");

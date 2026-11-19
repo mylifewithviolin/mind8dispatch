@@ -7,6 +7,7 @@ namespace Mind8Kernel
         internal StackPointer? Stack { get; private set; }
         internal MCodePointer? Code { get; private set; }
         internal uint Address => address;
+        internal uint DataSize => checked((uint)dataArray.Length);
 
         public void SetupDataArray(uint size)
         {

@@ -2,7 +2,7 @@
 
 調査日: 2026-11-17
 
-実施後追記: 本修正案は実行済み。5サンプルが終了コード0、61/61テスト成功。
+実施後追記（2026-11-20）: 531件解消作業の区切り3は継続中。最新の回帰テストは73/73成功し、hello/variables/binarysearch/bubblesort/insertsortのfixtureもすべて完走した。
 ユーザー確認により元MCOと正規版のCRLF出力を維持したため、探索・整列3件は参照LFをCRLFに展開した期待値と一致する。
 第1・4・5章は実施前の調査・計画の記録、第3・6章は実施後の再集計である。
 区切りごとの結果、受入条件の変更、制限は[完了レポート](./Mind8ディスパッチャC＃互換実装基本サンプル完走までの修正案v2完了レポート.md)を参照。
@@ -88,30 +88,55 @@ dotnet .\bin\Debug\net8.0\mind8dispatch.dll .\tests\fixtures\insertsort.mco
 
 | 分類 | 件数 | 全743件に対する割合 |
 | --- | ---: | ---: |
-| 未実装 | **531** | 71.47% |
-| 実装済未検証 | **135** | 18.17% |
-| 実装済検証済 | **77** | 10.36% |
+| 未実装 | **453** | 60.97% |
+| 実装済未検証 | **137** | 18.44% |
+| 実装済検証済 | **153** | 20.59% |
 | 合計 | **743** | 100.00% |
 
-登録状況の別集計: **登録なし516件 + 登録あり227件 = 743件**。
-登録あり227件の内訳: **例外スタブ15件 + 実装済未検証135件 + 実装済検証済77件**。
-未実装は **516 + 15 = 531件**。登録数を実装数として扱わない。
+登録状況の別集計: **登録なし453件 + 登録あり290件 = 743件**。
+登録あり290件の内訳: **実装済未検証137件 + 実装済検証済153件**。15件あった登録済み例外スタブはすべて実処理へ置き換えた。
+未実装は **登録なし453件**。登録数だけを実装数として扱わず、実処理の有無で分類する。
 
-検証済み77件は成功した命令単位の期待値照合で重複排除した件数であり、成功テスト数61件とは異なる。
+検証済み153件は成功した命令単位の期待値照合で重複排除した件数であり、テスト件数73件とは異なる。最新の回帰テストでは全73件と5つのfixtureが成功した。
 5サンプルの完走だけを理由に、通過命令すべてを検証済みへ昇格させていない。
 割合の表示は小数第2位に丸めている。
 
 | 命令番号帯 | 未実装 | 実装済未検証 | 実装済検証済 | 合計 |
 | --- | ---: | ---: | ---: | ---: |
-| 0x0010〜0x00FF | 90 | 110 | 40 | 240 |
+| 0x0010〜0x00FF | 12 | 112 | 116 | 240 |
 | 0x0100〜0x01FF | 204 | 18 | 34 | 256 |
 | 0x0200〜0x02F6 | 237 | 7 | 3 | 247 |
 
-### 3.1 登録済みの例外スタブ15件
+### 3.1 区切り1で実装した既存スタブ15件
 
 `004B`, `0059`, `0060`, `0061`, `0062`, `0073`, `0083`, `0084`, `0089`, `008E`, `0090`, `0091`, `0092`, `0093`, `0094`。
 
-実施前に主要処理欠落だった`008F`と`0164`〜`0167`の5件は、本体を実装し、個別の期待値照合も成功したため、この15件には含めない。
+15件すべての実処理を追加した。うち`004B`, `0059`, `0060`〜`0062`, `0073`, `0089`, `008E`〜`0094`の13件は命令単位の期待値照合に成功した。`0083`と`0084`は64ビット値のスタック往復を確認したが、正規C版の診断出力との完全照合が未完了のため実装済未検証に留める。
+
+実施前に主要処理欠落だった`008F`と`0164`〜`0167`の5件は、この区切りより前に本体を実装し、個別の期待値照合も成功している。
+
+### 3.2 区切り3の数値・表示系で今回実装した63件
+
+`00A6`〜`00BD`の24件、ならびに `00C0`、`00C2`、`00C3`、`00C5`〜`00C8`、`00CA`〜`00CD`、`00CE`〜`00EB`を実装した。浮動小数点定数の2ワード格納、`c_atof` の数値prefix/end pointer、整数・小数部の移動とpack/unpack、タグ付き領域のstack/data情報、Shift-JIS文字・文字列およびC形式の数値表示、数値から文字列への変換、memory/stack dump、変数・局所・定数配列と構造体参照を対象にした。`00D7`と`00DD`はそれぞれC表上の`zzPointQarray`、`zzPointQarrayLocal`別名として既存opcodeと同じ処理へ登録した。
+
+| opcode群 | 処理と個別確認 |
+| --- | --- |
+| `00A6` | `c_atof`: prefixを解析しdoubleを返す。変換後ポインターを書き込み。 |
+| `00A7`〜`00B5` | 定数15件。IEEE double値と2ワード配置を確認。 |
+| `00B6`〜`00B8` | データstack／return stack／data areaのアドレス・サイズを確認。 |
+| `00B9`〜`00BD` | integer/fraction wordの消去、移動、pack/unpackを確認。 |
+| `00C0`、`00C2`、`00C3`、`00C5`〜`00C8` | `wordStore11`、引用符、Shift-JIS文字、16進表示を確認。 |
+| `00CB`、`00CC`、`00CE` | 固定小数、指数、quad表示の書式を確認。 |
+| `00CF`、`00D0`、`00D2` | byte/word dumpとreturn stack monitorの出力を確認。 |
+| `00D3`、`00D4`、`00D7` | 1始まりのbyte/word配列添字、要素幅、quad配列別名を確認。 |
+| `00CA`、`00CD` | 符号付きquadと固定／指数形式の数値文字列、幅・精度・バッファ上限を確認。 |
+| `00D1` | quad単位のdata stack表示、異常なstack幅の診断、stack resetを確認。 |
+| `00D8`〜`00DE` | 可変長配列と局所byte/word/double/quad配列の添字・要素幅を確認。 |
+| `00DF`〜`00E3` | 定数byte/word/double/quad/string配列の参照を確認。 |
+| `00E4`〜`00E7` | global/local構造体の多次元添字とレコード情報を確認。 |
+| `00E8`〜`00EB` | 一時構造体の直接／多次元再参照とレコード長を確認。 |
+
+これら63件は命令単位の期待値照合に成功したため、すべて実装済検証済へ移動した。区切り3は継続中で、残る数値／表示系と、`0x00F2`〜`0x00FC`・`0x00FF`を含む後続opcodeを調査する。回帰テストは73/73成功し、5つのfixtureもすべて完走した。
 
 ## 4. 3サンプルに対する不足命令の洗い出し
 
@@ -302,7 +327,7 @@ MCOのLOCテーブル、単語呼出し、即値長、文字列リテラル長�
 | `0x0048` | `zzPushLvar` | [ZzPushLvar](../CsFunctionsCompword.cs#L510) | 実装済検証済 | [配列境界・読出し](../tests/Program.cs#L60) |
 | `0x0049` | `zzPushQvar` | [ZzPushQvar](../CsFunctionsCompword.cs#L518) | 実装済未検証 | 命令単位の期待値照合なし |
 | `0x004A` | `zzPushSvar` | [ZzPushSvar](../CsFunctionsCompword.cs#L526) | 実装済未検証 | 命令単位の期待値照合なし |
-| `0x004B` | `zzPushJvar` | [ZzPushJvar](../CsFunctionsCompword.cs#L534) | 未実装 | `UnDefined`例外のみ |
+| `0x004B` | `zzPushJvar` | [ZzPushJvar](../CsFunctionsCompword.cs#L536) | 実装済検証済 | [Jvar参照](../tests/Program.cs#L955) |
 | `0x004C` | `zzReadBvar` | [ZzReadBvar](../CsFunctionsCompword.cs#L546) | 実装済未検証 | 命令単位の期待値照合なし |
 | `0x004D` | `zzReadWvar` | [ZzReadWvar](../CsFunctionsCompword.cs#L556) | 実装済未検証 | 命令単位の期待値照合なし。hello/variables通過のみ |
 | `0x004E` | `zzReadDvar` | [ZzReadDvar](../CsFunctionsCompword.cs#L566) | 実装済未検証 | 命令単位の期待値照合なし。hello/variables通過のみ |
@@ -316,16 +341,16 @@ MCOのLOCテーブル、単語呼出し、即値長、文字列リテラル長�
 | `0x0056` | `zzReadLvarLocal` | [ZzReadLvarLocal](../CsFunctionsCompword.cs#L667) | 実装済検証済 | [局所2ワード](../tests/Program.cs#L26) |
 | `0x0057` | `zzReadQvarLocal` | [ZzReadQvarLocal](../CsFunctionsCompword.cs#L677) | 実装済検証済 | [局所2ワード](../tests/Program.cs#L26) |
 | `0x0058` | `zzReadSvarLocal` | [ZzReadSvarLocal](../CsFunctionsCompword.cs#L687) | 実装済検証済 | [局所2ワード](../tests/Program.cs#L26) |
-| `0x0059` | `zzReadJvarLocal` | [ZzReadJvarLocal](../CsFunctionsCompword.cs#L697) | 未実装 | `UnDefined`例外のみ |
+| `0x0059` | `zzReadJvarLocal` | [ZzReadJvarLocal](../CsFunctionsCompword.cs#L697) | 実装済検証済 | [Jvar参照](../tests/Program.cs#L955) |
 | `0x005A` | `zzPopBvar` | [ZzPopBvar](../CsFunctionsCompword.cs#L711) | 実装済未検証 | 命令単位の期待値照合なし |
 | `0x005B` | `zzPopWvar` | [ZzPopWvar](../CsFunctionsCompword.cs#L717) | 実装済未検証 | 命令単位の期待値照合なし |
 | `0x005C` | `zzPopDvar` | [ZzPopDvar](../CsFunctionsCompword.cs#L723) | 実装済検証済 | [4バイト配列・境界・読書き](../tests/Program.cs#L47) |
 | `0x005D` | `zzPopLvar` | [ZzPopLvar](../CsFunctionsCompword.cs#L729) | 実装済未検証 | 命令単位の期待値照合なし |
 | `0x005E` | `zzPopQvar` | [ZzPopQvar](../CsFunctionsCompword.cs#L736) | 実装済未検証 | 命令単位の期待値照合なし |
 | `0x005F` | `zzPopSvar` | [ZzPopSvar](../CsFunctionsCompword.cs#L742) | 実装済未検証 | 命令単位の期待値照合なし |
-| `0x0060` | `zzPopMemory` | [ZzPopMemory](../CsFunctionsCompword.cs#L748) | 未実装 | `UnDefined`例外のみ |
-| `0x0061` | `zzPopMemory` | [ZzPopMemory](../CsFunctionsCompword.cs#L748) | 未実装 | `UnDefined`例外のみ |
-| `0x0062` | `zzPopMemoryWithResult` | [ZzPopMemoryWithResult](../CsFunctionsCompword.cs#L752) | 未実装 | `UnDefined`例外のみ |
+| `0x0060` | `zzPopMemory` | [ZzPopMemory](../CsFunctionsCompword.cs#L752) | 実装済検証済 | [重複領域・切詰め](../tests/Program.cs#L986) |
+| `0x0061` | `zzPopMemory` | [ZzPopMemory](../CsFunctionsCompword.cs#L752) | 実装済検証済 | [重複領域・切詰め](../tests/Program.cs#L986) |
+| `0x0062` | `zzPopMemoryWithResult` | [ZzPopMemoryWithResult](../CsFunctionsCompword.cs#L762) | 実装済検証済 | [残り文字列情報](../tests/Program.cs#L986) |
 | `0x0063` | `zzWriteBvar` | [ZzWriteBvar](../CsFunctionsCompword.cs#L759) | 実装済未検証 | 命令単位の期待値照合なし |
 | `0x0064` | `zzWriteWvar` | [ZzWriteWvar](../CsFunctionsCompword.cs#L774) | 実装済未検証 | 命令単位の期待値照合なし |
 | `0x0065` | `zzWriteDvar` | [ZzWriteDvar](../CsFunctionsCompword.cs#L789) | 実装済未検証 | 命令単位の期待値照合なし。hello/variables通過のみ |
@@ -342,7 +367,7 @@ MCOのLOCテーブル、単語呼出し、即値長、文字列リテラル長�
 | `0x0070` | `zzClearWvar` | [ZzClearWvar](../CsFunctionsCompword.cs#L929) | 実装済未検証 | 命令単位の期待値照合なし。hello/variables通過のみ |
 | `0x0071` | `zzClearDvar` | [ZzClearDvar](../CsFunctionsCompword.cs#L934) | 実装済未検証 | 命令単位の期待値照合なし。hello/variables通過のみ |
 | `0x0072` | `zzClearLvar` | [ZzClearLvar](../CsFunctionsCompword.cs#L939) | 実装済未検証 | 命令単位の期待値照合なし |
-| `0x0073` | `zzClearFvar` | [ZzClearFvar](../CsFunctionsCompword.cs#L944) | 未実装 | `UnDefined`例外のみ |
+| `0x0073` | `zzClearFvar` | [ZzClearFvar](../CsFunctionsCompword.cs#L964) | 実装済検証済 | [浮動小数点変数](../tests/Program.cs#L1059) |
 | `0x0074` | `zzClearSvar` | [ZzClearSvar](../CsFunctionsCompword.cs#L949) | 実装済未検証 | 命令単位の期待値照合なし。hello/variables通過のみ |
 | `0x0075` | `zzClearMemory` | [ZzClearMemory](../CsFunctionsCompword.cs#L955) | 実装済検証済 | [データ範囲クリア](../tests/Program.cs#L53) |
 | `0x0076` | `zzClearMemory` | [ZzClearMemory](../CsFunctionsCompword.cs#L955) | 実装済未検証 | 命令単位の期待値照合なし |
@@ -358,24 +383,24 @@ MCOのLOCテーブル、単語呼出し、即値長、文字列リテラル長�
 | `0x0080` | `zzSetWvar` | [ZzSetWvar](../CsFunctionsCompword.cs#L1019) | 実装済未検証 | 命令単位の期待値照合なし。hello/variables通過のみ |
 | `0x0081` | `zzSetDvar` | [ZzSetDvar](../CsFunctionsCompword.cs#L1025) | 実装済未検証 | 命令単位の期待値照合なし。variables通過のみ |
 | `0x0082` | `zzSetLvar` | [ZzSetLvar](../CsFunctionsCompword.cs#L1030) | 実装済未検証 | 命令単位の期待値照合なし |
-| `0x0083` | `c_test_push_quad` | [c_test_push_quad](../CsFunctionsCompword.cs#L1035) | 未実装 | `UnDefined`例外のみ |
-| `0x0084` | `c_test_push_float` | [c_test_push_float](../CsFunctionsCompword.cs#L1039) | 未実装 | `UnDefined`例外のみ |
+| `0x0083` | `c_test_push_quad` | [c_test_push_quad](../CsFunctionsCompword.cs#L1070) | 実装済未検証 | スタック往復を実装。C版診断出力は未照合 |
+| `0x0084` | `c_test_push_float` | [c_test_push_float](../CsFunctionsCompword.cs#L1079) | 実装済未検証 | スタック往復を実装。C版診断出力は未照合 |
 | `0x0085` | `zzAddBvar` | [ZzAddBvar](../CsFunctionsCompword.cs#L1044) | 実装済未検証 | 命令単位の期待値照合なし |
 | `0x0086` | `zzAddWvar` | [ZzAddWvar](../CsFunctionsCompword.cs#L1051) | 実装済未検証 | 命令単位の期待値照合なし |
 | `0x0087` | `zzAddDvar` | [ZzAddDvar](../CsFunctionsCompword.cs#L1058) | 実装済未検証 | 命令単位の期待値照合なし |
 | `0x0088` | `zzAddLvar` | [ZzAddLvar](../CsFunctionsCompword.cs#L1065) | 実装済未検証 | 命令単位の期待値照合なし |
-| `0x0089` | `zzAddFvar` | [ZzAddFvar](../CsFunctionsCompword.cs#L1081) | 未実装 | `UnDefined`例外のみ |
+| `0x0089` | `zzAddFvar` | [ZzAddFvar](../CsFunctionsCompword.cs#L1126) | 実装済検証済 | [浮動小数点変数](../tests/Program.cs#L1059) |
 | `0x008A` | `zzSubBvar` | [ZzSubBvar](../CsFunctionsCompword.cs#L1089) | 実装済未検証 | 命令単位の期待値照合なし |
 | `0x008B` | `zzSubWvar` | [ZzSubWvar](../CsFunctionsCompword.cs#L1096) | 実装済未検証 | 命令単位の期待値照合なし |
 | `0x008C` | `zzSubDvar` | [ZzSubDvar](../CsFunctionsCompword.cs#L1103) | 実装済未検証 | 命令単位の期待値照合なし |
 | `0x008D` | `zzSubLvar` | [ZzSubLvar](../CsFunctionsCompword.cs#L1110) | 実装済未検証 | 命令単位の期待値照合なし |
-| `0x008E` | `zzSubFvar` | [ZzSubFvar](../CsFunctionsCompword.cs#L1124) | 未実装 | `UnDefined`例外のみ |
+| `0x008E` | `zzSubFvar` | [ZzSubFvar](../CsFunctionsCompword.cs#L1171) | 実装済検証済 | [浮動小数点変数](../tests/Program.cs#L1059) |
 | `0x008F` | `byteLoad` | [ByteLoad](../CsFunctionsCompword.cs#L1133) | 実装済検証済 | [文字コード・スタック実体参照](../tests/Program.cs#L42) |
-| `0x0090` | `wordLoad` | [WordLoad](../CsFunctionsCompword.cs#L1140) | 未実装 | `UnDefined`例外のみ |
-| `0x0091` | `doubleLoad` | [DoubleLoad](../CsFunctionsCompword.cs#L1147) | 未実装 | `UnDefined`例外のみ |
-| `0x0092` | `byteStore` | [ByteStore](../CsFunctionsCompword.cs#L1155) | 未実装 | `UnDefined`例外のみ |
-| `0x0093` | `wordStore` | [WordStore](../CsFunctionsCompword.cs#L1162) | 未実装 | `UnDefined`例外のみ |
-| `0x0094` | `doubleStore` | [DoubleStore](../CsFunctionsCompword.cs#L1169) | 未実装 | `UnDefined`例外のみ |
+| `0x0090` | `wordLoad` | [WordLoad](../CsFunctionsCompword.cs#L1189) | 実装済検証済 | [間接ロード・ストア](../tests/Program.cs#L1024) |
+| `0x0091` | `doubleLoad` | [DoubleLoad](../CsFunctionsCompword.cs#L1197) | 実装済検証済 | [間接ロード・ストア](../tests/Program.cs#L1024) |
+| `0x0092` | `byteStore` | [ByteStore](../CsFunctionsCompword.cs#L1206) | 実装済検証済 | [間接ロード・ストア](../tests/Program.cs#L1024) |
+| `0x0093` | `wordStore` | [WordStore](../CsFunctionsCompword.cs#L1215) | 実装済検証済 | [間接ロード・ストア](../tests/Program.cs#L1024) |
+| `0x0094` | `doubleStore` | [DoubleStore](../CsFunctionsCompword.cs#L1226) | 実装済検証済 | [間接ロード・ストア](../tests/Program.cs#L1024) |
 | `0x0095` | `zz0` | [Zz0](../CsFunctionsCompword.cs#L1178) | 実装済未検証 | 命令単位の期待値照合なし。hello/variables通過のみ |
 | `0x0096` | `zz1` | [Zz1](../CsFunctionsCompword.cs#L1187) | 実装済未検証 | 命令単位の期待値照合なし。hello/variables通過のみ |
 | `0x0097` | `zz2` | [Zz2](../CsFunctionsCompword.cs#L1193) | 実装済未検証 | 命令単位の期待値照合なし。hello/variables通過のみ |
@@ -393,76 +418,76 @@ MCOのLOCテーブル、単語呼出し、即値長、文字列リテラル長�
 | `0x00A3` | `zzQuad` | [ZzQuad](../CsFunctionsCompword.cs#L1268) | 実装済未検証 | 命令単位の期待値照合なし |
 | `0x00A4` | `zzSliteralOdd` | [ZzSliteralOdd](../CsFunctionsCompword.cs#L1281) | 実装済未検証 | 命令単位の期待値照合なし |
 | `0x00A5` | `zzSliteralEven` | [ZzSliteralEven](../CsFunctionsCompword.cs#L1292) | 実装済未検証 | 命令単位の期待値照合なし。hello/variables通過のみ |
-| `0x00A6` | `c_atof` | — | 未実装 | 未登録 |
-| `0x00A7` | `c_M_ZERO` | — | 未実装 | 未登録 |
-| `0x00A8` | `c_M_ONE` | — | 未実装 | 未登録 |
-| `0x00A9` | `c_M_E` | — | 未実装 | 未登録 |
-| `0x00AA` | `c_M_LOG2E` | — | 未実装 | 未登録 |
-| `0x00AB` | `c_M_LOG10E` | — | 未実装 | 未登録 |
-| `0x00AC` | `c_M_LN2` | — | 未実装 | 未登録 |
-| `0x00AD` | `c_M_LN10` | — | 未実装 | 未登録 |
-| `0x00AE` | `c_M_PI` | — | 未実装 | 未登録 |
-| `0x00AF` | `c_M_PI_2` | — | 未実装 | 未登録 |
-| `0x00B0` | `c_M_PI_4` | — | 未実装 | 未登録 |
-| `0x00B1` | `c_M_1_PI` | — | 未実装 | 未登録 |
-| `0x00B2` | `c_M_2_PI` | — | 未実装 | 未登録 |
-| `0x00B3` | `c_M_2_SQRTPI` | — | 未実装 | 未登録 |
-| `0x00B4` | `c_M_SQRT2` | — | 未実装 | 未登録 |
-| `0x00B5` | `c_M_SQRT1_2` | — | 未実装 | 未登録 |
-| `0x00B6` | `stackPointer` | — | 未実装 | 未登録 |
-| `0x00B7` | `returnStackPointer` | — | 未実装 | 未登録 |
-| `0x00B8` | `zzDataArear` | — | 未実装 | 未登録 |
-| `0x00B9` | `seisubuWoEru` | — | 未実装 | 未登録 |
-| `0x00BA` | `syosubuWoEru` | — | 未実装 | 未登録 |
-| `0x00BB` | `seisubuWoClear` | — | 未実装 | 未登録 |
-| `0x00BC` | `seisuToSyosuWoPack` | — | 未実装 | 未登録 |
-| `0x00BD` | `seisuToSyosuWoUnpack` | — | 未実装 | 未登録 |
+| `0x00A6` | `c_atof` | [C_atof](../CsFunctionsNumeric.cs) | 実装済検証済 | [prefix/end pointer test](../tests/Program.cs#L62) |
+| `0x00A7` | `c_M_ZERO` | [CMZero](../CsFunctionsNumeric.cs) | 実装済検証済 | [constant layout test](../tests/Program.cs#L60) |
+| `0x00A8` | `c_M_ONE` | [CMOne](../CsFunctionsNumeric.cs) | 実装済検証済 | [constant layout test](../tests/Program.cs#L60) |
+| `0x00A9` | `c_M_E` | [CME](../CsFunctionsNumeric.cs) | 実装済検証済 | [constant layout test](../tests/Program.cs#L60) |
+| `0x00AA` | `c_M_LOG2E` | [CMLog2E](../CsFunctionsNumeric.cs) | 実装済検証済 | [constant layout test](../tests/Program.cs#L60) |
+| `0x00AB` | `c_M_LOG10E` | [CMLog10E](../CsFunctionsNumeric.cs) | 実装済検証済 | [constant layout test](../tests/Program.cs#L60) |
+| `0x00AC` | `c_M_LN2` | [CMLn2](../CsFunctionsNumeric.cs) | 実装済検証済 | [constant layout test](../tests/Program.cs#L60) |
+| `0x00AD` | `c_M_LN10` | [CMLn10](../CsFunctionsNumeric.cs) | 実装済検証済 | [constant layout test](../tests/Program.cs#L60) |
+| `0x00AE` | `c_M_PI` | [CMPi](../CsFunctionsNumeric.cs) | 実装済検証済 | [constant layout test](../tests/Program.cs#L60) |
+| `0x00AF` | `c_M_PI_2` | [CMPi2](../CsFunctionsNumeric.cs) | 実装済検証済 | [constant layout test](../tests/Program.cs#L60) |
+| `0x00B0` | `c_M_PI_4` | [CMPi4](../CsFunctionsNumeric.cs) | 実装済検証済 | [constant layout test](../tests/Program.cs#L60) |
+| `0x00B1` | `c_M_1_PI` | [CM1Pi](../CsFunctionsNumeric.cs) | 実装済検証済 | [constant layout test](../tests/Program.cs#L60) |
+| `0x00B2` | `c_M_2_PI` | [CM2Pi](../CsFunctionsNumeric.cs) | 実装済検証済 | [constant layout test](../tests/Program.cs#L60) |
+| `0x00B3` | `c_M_2_SQRTPI` | [CM2SqrtPi](../CsFunctionsNumeric.cs) | 実装済検証済 | [constant layout test](../tests/Program.cs#L60) |
+| `0x00B4` | `c_M_SQRT2` | [CMSqrt2](../CsFunctionsNumeric.cs) | 実装済検証済 | [constant layout test](../tests/Program.cs#L60) |
+| `0x00B5` | `c_M_SQRT1_2` | [CM_SQRT1_2](../CsFunctionsNumeric.cs) | 実装済検証済 | [constant layout test](../tests/Program.cs#L60) |
+| `0x00B6` | `stackPointer` | [StackPointer](../CsFunctionsNumeric.cs) | 実装済検証済 | [stack address test](../tests/Program.cs#L60) |
+| `0x00B7` | `returnStackPointer` | [ReturnStackPointer](../CsFunctionsNumeric.cs) | 実装済検証済 | [stack address test](../tests/Program.cs#L60) |
+| `0x00B8` | `zzDataArear` | [zzDataArear](../CsFunctionsNumeric.cs) | 実装済検証済 | [data area test](../tests/Program.cs#L60) |
+| `0x00B9` | `seisubuWoEru` | [seisubuWoEru](../CsFunctionsNumeric.cs) | 実装済検証済 | [fraction word test](../tests/Program.cs#L60) |
+| `0x00BA` | `syosubuWoEru` | [syosubuWoEru](../CsFunctionsNumeric.cs) | 実装済検証済 | [fraction word test](../tests/Program.cs#L60) |
+| `0x00BB` | `seisubuWoClear` | [seisubuWoClear](../CsFunctionsNumeric.cs) | 実装済検証済 | [fraction word test](../tests/Program.cs#L60) |
+| `0x00BC` | `seisuToSyosuWoPack` | [seisuToSyosuWoPack](../CsFunctionsNumeric.cs) | 実装済検証済 | [pack/unpack test](../tests/Program.cs#L62) |
+| `0x00BD` | `seisuToSyosuWoUnpack` | [seisuToSyosuWoUnpack](../CsFunctionsNumeric.cs) | 実装済検証済 | [pack/unpack test](../tests/Program.cs#L62) |
 | `0x00BE` | `mojiretuJyouhouBunkai` | [MojiretuJyouhouBunkai](../CsFunctions0ker.cs#L6) | 実装済未検証 | 命令単位の期待値照合なし |
 | `0x00BF` | `mojiretuJyouhouGousei` | [MojiretuJyouhouGousei](../CsFunctions0ker.cs#L20) | 実装済未検証 | 命令単位の期待値照合なし。hello/variables通過のみ |
-| `0x00C0` | `wordStore11` | — | 未実装 | 未登録 |
+| `0x00C0` | `wordStore11` | [WordStore11](../CsFunctionsNumeric.cs) | 実装済検証済 | [display/memory test](../tests/Program.cs#L61) |
 | `0x00C1` | `zzHyouji` | [ZzHyouji](../CsFunctionsDispword.cs#L9) | 実装済未検証 | 命令単位の期待値照合なし |
-| `0x00C2` | `zzDoubleQuateHyouji` | — | 未実装 | 未登録 |
-| `0x00C3` | `zzIchimojiHyouji` | — | 未実装 | 未登録 |
+| `0x00C2` | `zzDoubleQuateHyouji` | [ZzDoubleQuateHyouji](../CsFunctionsDispword.cs) | 実装済検証済 | [display test](../tests/Program.cs#L61) |
+| `0x00C3` | `zzIchimojiHyouji` | [ZzIchimojiHyouji](../CsFunctionsDispword.cs) | 実装済検証済 | [Shift-JIS display test](../tests/Program.cs#L61) |
 | `0x00C4` | `zzKaigyou` | [ZzKaigyou](../CsFunctionsDispword.cs#L28) | 実装済検証済 | [数値・改行出力](../tests/Program.cs#L33) |
-| `0x00C5` | `zzNibbleHyouji` | — | 未実装 | 未登録 |
-| `0x00C6` | `zzByteHyouji` | — | 未実装 | 未登録 |
-| `0x00C7` | `zzWordHyouji` | — | 未実装 | 未登録 |
-| `0x00C8` | `zzDoubleHyouji` | — | 未実装 | 未登録 |
+| `0x00C5` | `zzNibbleHyouji` | [ZzNibbleHyouji](../CsFunctionsDispword.cs) | 実装済検証済 | [hex display test](../tests/Program.cs#L61) |
+| `0x00C6` | `zzByteHyouji` | [ZzByteHyouji](../CsFunctionsDispword.cs) | 実装済検証済 | [hex display test](../tests/Program.cs#L61) |
+| `0x00C7` | `zzWordHyouji` | [ZzWordHyouji](../CsFunctionsDispword.cs) | 実装済検証済 | [hex display test](../tests/Program.cs#L61) |
+| `0x00C8` | `zzDoubleHyouji` | [ZzDoubleHyouji](../CsFunctionsDispword.cs) | 実装済検証済 | [hex display test](../tests/Program.cs#L61) |
 | `0x00C9` | `zzBaiseidoHyouji` | [ZzBaiseidoHyouji](../CsFunctionsDispword.cs#L30) | 実装済検証済 | [数値・改行出力](../tests/Program.cs#L33) |
-| `0x00CA` | `c_conv_to_string_quad` | — | 未実装 | 未登録 |
-| `0x00CB` | `zzSyosuHyouji` | — | 未実装 | 未登録 |
-| `0x00CC` | `zzSisuHyouji` | — | 未実装 | 未登録 |
-| `0x00CD` | `c_conv_to_string_fraction` | — | 未実装 | 未登録 |
-| `0x00CE` | `zzQuadHyouji` | — | 未実装 | 未登録 |
-| `0x00CF` | `zzDump` | — | 未実装 | 未登録 |
-| `0x00D0` | `zzDumpWord` | — | 未実装 | 未登録 |
-| `0x00D1` | `zzStackDump` | — | 未実装 | 未登録 |
-| `0x00D2` | `zzReturnStackMonitor` | — | 未実装 | 未登録 |
-| `0x00D3` | `zzPointBarray` | — | 未実装 | 未登録 |
-| `0x00D4` | `zzPointWarray` | — | 未実装 | 未登録 |
+| `0x00CA` | `c_conv_to_string_quad` | [C_conv_to_string_quad](../CsFunctionsNumeric.cs#L35) | 実装済検証済 | [数値文字列変換](../tests/Program.cs#L1567) |
+| `0x00CB` | `zzSyosuHyouji` | [zzSyosuHyouji](../CsFunctionsDispword.cs) | 実装済検証済 | [float display test](../tests/Program.cs#L61) |
+| `0x00CC` | `zzSisuHyouji` | [zzSisuHyouji](../CsFunctionsDispword.cs) | 実装済検証済 | [float display test](../tests/Program.cs#L61) |
+| `0x00CD` | `c_conv_to_string_fraction` | [C_conv_to_string_fraction](../CsFunctionsNumeric.cs#L45) | 実装済検証済 | [数値文字列変換](../tests/Program.cs#L1567) |
+| `0x00CE` | `zzQuadHyouji` | [zzQuadHyouji](../CsFunctionsDispword.cs) | 実装済検証済 | [quad display test](../tests/Program.cs#L61) |
+| `0x00CF` | `zzDump` | [ZzDump](../CsFunctionsDispword.cs) | 実装済検証済 | [dump・return stack monitor](../tests/Program.cs#L1332) |
+| `0x00D0` | `zzDumpWord` | [ZzDumpWord](../CsFunctionsDispword.cs) | 実装済検証済 | [dump・return stack monitor](../tests/Program.cs#L1332) |
+| `0x00D1` | `zzStackDump` | [zzStackDump](../CsFunctionsDispword.cs#L119) | 実装済検証済 | [data stack dump](../tests/Program.cs#L1618) |
+| `0x00D2` | `zzReturnStackMonitor` | [ZzReturnStackMonitor](../CsFunctionsDispword.cs) | 実装済検証済 | [dump・return stack monitor](../tests/Program.cs#L1332) |
+| `0x00D3` | `zzPointBarray` | [ZzPointBarray](../CsFunctionsCompword.cs#L385) | 実装済検証済 | [byte/word配列参照](../tests/Program.cs#L477) |
+| `0x00D4` | `zzPointWarray` | [ZzPointWarray](../CsFunctionsCompword.cs#L386) | 実装済検証済 | [byte/word配列参照](../tests/Program.cs#L477) |
 | `0x00D5` | `zzPointDarray` | [ZzPointDarray](../CsFunctionsCompword.cs#L384) | 実装済検証済 | [4バイト配列・境界・読書き](../tests/Program.cs#L47) |
 | `0x00D6` | `zzPointQarray` | [ZzPointQarray](../CsFunctionsCompword.cs#L383) | 実装済検証済 | [配列境界・読出し](../tests/Program.cs#L60) |
-| `0x00D7` | `zzPointQarray` | — | 未実装 | 未登録 |
-| `0x00D8` | `zzPointJXarray` | — | 未実装 | 未登録 |
-| `0x00D9` | `zzPointBarrayLocal` | — | 未実装 | 未登録 |
-| `0x00DA` | `zzPointWarrayLocal` | — | 未実装 | 未登録 |
-| `0x00DB` | `zzPointDarrayLocal` | — | 未実装 | 未登録 |
-| `0x00DC` | `zzPointQarrayLocal` | — | 未実装 | 未登録 |
-| `0x00DD` | `zzPointQarrayLocal` | — | 未実装 | 未登録 |
-| `0x00DE` | `zzPointJXarrayLocal` | — | 未実装 | 未登録 |
-| `0x00DF` | `zzPointConsBarray` | — | 未実装 | 未登録 |
-| `0x00E0` | `zzPointConsWarray` | — | 未実装 | 未登録 |
-| `0x00E1` | `zzPointConsDarray` | — | 未実装 | 未登録 |
-| `0x00E2` | `zzPointConsQarray` | — | 未実装 | 未登録 |
-| `0x00E3` | `zzPointConsJarray` | — | 未実装 | 未登録 |
-| `0x00E4` | `zzPointStrucVariable` | — | 未実装 | 未登録 |
-| `0x00E5` | `zzPushStrucRecord` | — | 未実装 | 未登録 |
-| `0x00E6` | `zzPointStrucVariableLocal` | — | 未実装 | 未登録 |
-| `0x00E7` | `zzPushStrucRecordLocal` | — | 未実装 | 未登録 |
-| `0x00E8` | `zzRepointTempVariableShort` | — | 未実装 | 未登録 |
-| `0x00E9` | `zzRepointTempRecordShort` | — | 未実装 | 未登録 |
-| `0x00EA` | `zzRepointTempVariable` | — | 未実装 | 未登録 |
-| `0x00EB` | `zzRepointTempRecord` | — | 未実装 | 未登録 |
+| `0x00D7` | `zzPointQarray` | [ZzPointQarray](../CsFunctionsCompword.cs#L387) | 実装済検証済 | [quad配列境界・読出し](../tests/Program.cs#L440) |
+| `0x00D8` | `zzPointJXarray` | [array handlers](../CsFunctionsCompword.cs) | 実装済検証済 | [配列・構造体参照](../tests/Program.cs#L511) |
+| `0x00D9` | `zzPointBarrayLocal` | [array handlers](../CsFunctionsCompword.cs) | 実装済検証済 | [配列・構造体参照](../tests/Program.cs#L511) |
+| `0x00DA` | `zzPointWarrayLocal` | [array handlers](../CsFunctionsCompword.cs) | 実装済検証済 | [配列・構造体参照](../tests/Program.cs#L511) |
+| `0x00DB` | `zzPointDarrayLocal` | [array handlers](../CsFunctionsCompword.cs) | 実装済検証済 | [配列・構造体参照](../tests/Program.cs#L511) |
+| `0x00DC` | `zzPointQarrayLocal` | [array handlers](../CsFunctionsCompword.cs) | 実装済検証済 | [配列・構造体参照](../tests/Program.cs#L511) |
+| `0x00DD` | `zzPointQarrayLocal` | [array handlers](../CsFunctionsCompword.cs) | 実装済検証済 | [配列・構造体参照](../tests/Program.cs#L511) |
+| `0x00DE` | `zzPointJXarrayLocal` | [array handlers](../CsFunctionsCompword.cs) | 実装済検証済 | [配列・構造体参照](../tests/Program.cs#L511) |
+| `0x00DF` | `zzPointConsBarray` | [array handlers](../CsFunctionsCompword.cs) | 実装済検証済 | [配列・構造体参照](../tests/Program.cs#L511) |
+| `0x00E0` | `zzPointConsWarray` | [array handlers](../CsFunctionsCompword.cs) | 実装済検証済 | [配列・構造体参照](../tests/Program.cs#L511) |
+| `0x00E1` | `zzPointConsDarray` | [array handlers](../CsFunctionsCompword.cs) | 実装済検証済 | [配列・構造体参照](../tests/Program.cs#L511) |
+| `0x00E2` | `zzPointConsQarray` | [array handlers](../CsFunctionsCompword.cs) | 実装済検証済 | [配列・構造体参照](../tests/Program.cs#L511) |
+| `0x00E3` | `zzPointConsJarray` | [array handlers](../CsFunctionsCompword.cs) | 実装済検証済 | [配列・構造体参照](../tests/Program.cs#L511) |
+| `0x00E4` | `zzPointStrucVariable` | [array handlers](../CsFunctionsCompword.cs) | 実装済検証済 | [配列・構造体参照](../tests/Program.cs#L511) |
+| `0x00E5` | `zzPushStrucRecord` | [array handlers](../CsFunctionsCompword.cs) | 実装済検証済 | [配列・構造体参照](../tests/Program.cs#L511) |
+| `0x00E6` | `zzPointStrucVariableLocal` | [array handlers](../CsFunctionsCompword.cs) | 実装済検証済 | [配列・構造体参照](../tests/Program.cs#L511) |
+| `0x00E7` | `zzPushStrucRecordLocal` | [array handlers](../CsFunctionsCompword.cs) | 実装済検証済 | [配列・構造体参照](../tests/Program.cs#L511) |
+| `0x00E8` | `zzRepointTempVariableShort` | [array handlers](../CsFunctionsCompword.cs) | 実装済検証済 | [配列・構造体参照](../tests/Program.cs#L511) |
+| `0x00E9` | `zzRepointTempRecordShort` | [array handlers](../CsFunctionsCompword.cs) | 実装済検証済 | [配列・構造体参照](../tests/Program.cs#L511) |
+| `0x00EA` | `zzRepointTempVariable` | [array handlers](../CsFunctionsCompword.cs) | 実装済検証済 | [配列・構造体参照](../tests/Program.cs#L511) |
+| `0x00EB` | `zzRepointTempRecord` | [array handlers](../CsFunctionsCompword.cs) | 実装済検証済 | [配列・構造体参照](../tests/Program.cs#L511) |
 | `0x00EC` | `zzIf` | [Zzif](../CsFunctionsBunki.cs#L7) | 実装済未検証 | 命令単位の期待値照合なし。hello/variables通過のみ |
 | `0x00ED` | `zzNotif` | [ZzNotif](../CsFunctionsBunki.cs#L31) | 実装済未検証 | 命令単位の期待値照合なし。hello/variables通過のみ |
 | `0x00EE` | `zzDO` | [ZzDo](../CsFunctionsBunki.cs#L57) | 実装済検証済 | [回数指定・脱出・フレーム](../tests/Program.cs#L46) |
