@@ -16,6 +16,25 @@ namespace Mind8Kernel
             IsFalse();
         }
 
+        private void SentoKetasuSeigen() => TrimJinfo(fromHead: true);
+        private void MatubiKetasuSeigen() => TrimJinfo(fromHead: false);
+
+        private void TrimJinfo(bool fromHead)
+        {
+            uint limit = PopIntegerOfQuad();
+            ulong info = ap.GetUll();
+            uint length = (uint)info;
+            uint address = (uint)(info >> 32);
+            byte[] content = ReadStringBytes(address, length);
+            (int offset, int remaining) = fromHead
+                ? FitStringSuffix(content, limit)
+                : (0, FitStringLength(content, limit));
+
+            ap.SetUl4Ms((uint)remaining, fromHead ? AddAddress(address, (uint)offset) : address);
+            dtp.PushUl(offset != 0 || remaining != content.Length ? 1u : 0u);
+            dtp.PushUl(0);
+        }
+
         private static bool IsThisByteKanji(byte value) =>
             value is >= 0x81 and <= 0x9F or >= 0xE0;
 
@@ -36,6 +55,19 @@ namespace Mind8Kernel
             while ((uint)length > capacity)
                 length -= LastCharacterWidth(bytes, length);
             return length;
+        }
+
+        private static (int Offset, int Length) FitStringSuffix(byte[] bytes, uint capacity)
+        {
+            int offset = 0;
+            int length = bytes.Length;
+            while ((uint)length > capacity)
+            {
+                int width = bytes.Length - offset >= 2 && IsThisByteKanji(bytes[offset]) ? 2 : 1;
+                offset += width;
+                length -= width;
+            }
+            return (offset, length);
         }
 
         private void PopJvar_0(uint address, uint capacity)
@@ -61,6 +93,43 @@ namespace Mind8Kernel
         {
             uint address = LocalAddress(mp.FetchMcode());
             PopJvar_0(address, mp.FetchMcode());
+        }
+
+        private void PopXvar_0(uint address, uint capacity)
+        {
+            uint length = dtp.PopUl();
+            uint source = dtp.PopUl();
+            byte[] content = ReadStringBytes(source, length);
+            int count = FitStringLength(content, capacity);
+            byte[] value = new byte[checked((int)capacity)];
+            Array.Fill(value, (byte)' ');
+            content.AsSpan(0, count).CopyTo(value);
+            WriteMemory(address, value);
+        }
+
+        private void ZzPopXvar() => PopXvar_0(AccessAddress, mp.FetchMcodeInt());
+
+        private void ZzWriteXvar()
+        {
+            uint address = DataAddressBit | mp.FetchMcodeInt();
+            PopXvar_0(address, mp.FetchMcodeInt());
+        }
+
+        private void ZzWriteXvarLocal()
+        {
+            uint address = LocalAddress(mp.FetchMcode());
+            PopXvar_0(address, mp.FetchMcode());
+        }
+
+        private void TanjyunMojiretuJittaiWoClear()
+        {
+            uint length = dtp.PopUl();
+            uint address = dtp.PopUl();
+            WriteMemory(address, Enumerable.Repeat((byte)' ', checked((int)length)).ToArray());
+        }
+
+        private void MojiretuJittaiJohoWoEru()
+        {
         }
 
         private void MojiretuJittaiWoIre()

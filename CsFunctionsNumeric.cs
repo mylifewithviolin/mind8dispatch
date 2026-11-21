@@ -156,4 +156,270 @@ public partial class Dispatcher
         if (value < 256) value += 0x1100;
         WriteMemory(address, [(byte)value, (byte)(value >> 8)]);
     }
+
+    private int PopSignedIntegerOfQuad() => unchecked((int)PopIntegerOfQuad());
+
+    private void ApplySignedIntegerComparison(Func<int, int, bool> comparison)
+    {
+        int right = PopSignedIntegerOfQuad();
+        int left = PopSignedIntegerOfQuad();
+        dtp.PushUl(comparison(left, right) ? 1u : 0u);
+        dtp.PushUl(0);
+    }
+
+    private void Kake()
+    {
+        int right = PopSignedIntegerOfQuad();
+        int left = unchecked((int)dtp.GetUlOffset(1));
+        dtp.SetUlOffset(unchecked((uint)(left * right)), 1);
+    }
+
+    private void SyouToAmari()
+    {
+        int divisor = PopSignedIntegerOfQuad();
+        int dividend = PopSignedIntegerOfQuad();
+        int quotient = dividend / divisor;
+        int remainder = dividend % divisor;
+        dtp.PushUl(unchecked((uint)quotient));
+        dtp.PushUl(0);
+        dtp.PushUl(unchecked((uint)remainder));
+        dtp.PushUl(0);
+    }
+
+    private void Amari()
+    {
+        int divisor = PopSignedIntegerOfQuad();
+        int dividend = unchecked((int)dtp.GetUlOffset(1));
+        dtp.SetUlOffset(unchecked((uint)(dividend % divisor)), 1);
+    }
+
+    private void Ika() => ApplySignedIntegerComparison((left, right) => left <= right);
+    private void Kotonaru() => ApplySignedIntegerComparison((left, right) => left != right);
+
+    private void TisaiHou()
+    {
+        int right = PopSignedIntegerOfQuad();
+        int left = PopSignedIntegerOfQuad();
+        dtp.PushUl(unchecked((uint)Math.Min(left, right)));
+        dtp.PushUl(0);
+    }
+
+    private void OokiiHou()
+    {
+        int right = PopSignedIntegerOfQuad();
+        int left = PopSignedIntegerOfQuad();
+        dtp.PushUl(unchecked((uint)Math.Max(left, right)));
+        dtp.PushUl(0);
+    }
+
+    private void IsHanni()
+    {
+        int maximum = PopSignedIntegerOfQuad();
+        int minimum = PopSignedIntegerOfQuad();
+        int value = PopSignedIntegerOfQuad();
+        dtp.PushUl(value >= minimum && value <= maximum ? 1u : 0u);
+        dtp.PushUl(0);
+    }
+
+    private void DotirakaniHitosii()
+    {
+        int second = PopSignedIntegerOfQuad();
+        int first = PopSignedIntegerOfQuad();
+        int value = PopSignedIntegerOfQuad();
+        dtp.PushUl(value == first || value == second ? 1u : 0u);
+        dtp.PushUl(0);
+    }
+
+    private void Zettaiti()
+    {
+        int value = PopSignedIntegerOfQuad();
+        dtp.PushUl(unchecked((uint)(value < 0 ? -value : value)));
+        dtp.PushUl(0);
+    }
+
+    private void PairDeFukusya()
+    {
+        uint integer1 = dtp.GetUlOffset(3);
+        uint fraction1 = dtp.GetUlOffset(2);
+        uint integer2 = dtp.GetUlOffset(1);
+        uint fraction2 = dtp.GetUlOffset(0);
+        dtp.PushUl(integer1);
+        dtp.PushUl(fraction1);
+        dtp.PushUl(integer2);
+        dtp.PushUl(fraction2);
+    }
+
+    private void IsSei() => dtp.SetUlOffset(unchecked((int)dtp.GetUlOffset(1)) >= 0 ? 1u : 0u, 1);
+    private void IsSeiNoKazu() => dtp.SetUlOffset(unchecked((int)dtp.GetUlOffset(1)) > 0 ? 1u : 0u, 1);
+
+    private void JyogeNibbleKoukan()
+    {
+        uint value = dtp.GetUlOffset(1);
+        uint lowByte = value & 0xFF;
+        dtp.SetUlOffset((value & 0xFFFFFF00) | ((lowByte >> 4 | lowByte << 4) & 0xFF), 1);
+    }
+
+    private void JyogeByteKoukan()
+    {
+        uint value = dtp.GetUlOffset(1);
+        uint lowWord = value & 0xFFFF;
+        dtp.SetUlOffset((value & 0xFFFF0000) | (lowWord >> 8 | lowWord << 8) & 0xFFFF, 1);
+    }
+
+    private void JyogeWordKoukan()
+    {
+        uint value = dtp.GetUlOffset(1);
+        dtp.SetUlOffset((value << 16) | (value >> 16), 1);
+    }
+
+    private void DoubleSwap()
+    {
+        uint value = dtp.GetUlOffset(1);
+        uint lowWord = value & 0xFFFF;
+        uint highWord = value >> 16;
+        uint swappedLow = (lowWord >> 8) | (lowWord << 8);
+        uint swappedHigh = (highWord >> 8) | (highWord << 8);
+        dtp.SetUlOffset(((swappedLow & 0xFFFF) << 16) | (swappedHigh & 0xFFFF), 1);
+    }
+
+    private void WatasihaBigEndian()
+    {
+        dtp.PushUl(BitConverter.IsLittleEndian ? 0u : 1u);
+        dtp.PushUl(0);
+    }
+
+    private void WatasihaLittleEndian()
+    {
+        dtp.PushUl(BitConverter.IsLittleEndian ? 1u : 0u);
+        dtp.PushUl(0);
+    }
+
+    private void JyouiNibble() => dtp.SetUlOffset((dtp.GetUlOffset(1) & 0xFF) >> 4, 1);
+    private void KaiNibble() => dtp.SetUlOffset(dtp.GetUlOffset(1) & 0x0F, 1);
+    private void JyouiByte() => dtp.SetUlOffset((dtp.GetUlOffset(1) & 0xFFFF) >> 8, 1);
+    private void KaiByte() => dtp.SetUlOffset(dtp.GetUlOffset(1) & 0xFF, 1);
+    private void JyouiWord() => dtp.SetUlOffset(dtp.GetUlOffset(1) >> 16, 1);
+    private void KaiWord() => dtp.SetUlOffset(dtp.GetUlOffset(1) & 0xFFFF, 1);
+
+    private void HidariShift()
+    {
+        uint count = unchecked((ushort)PopIntegerOfQuad());
+        dtp.SetUlOffset(dtp.GetUlOffset(1) << (int)count, 1);
+    }
+
+    private void MigiShift()
+    {
+        uint count = unchecked((ushort)PopIntegerOfQuad());
+        dtp.SetUlOffset(dtp.GetUlOffset(1) >> (int)count, 1);
+    }
+
+    private void ApplyIntegerBinary(Func<uint, uint, uint> operation)
+    {
+        uint right = PopIntegerOfQuad();
+        dtp.SetUlOffset(operation(dtp.GetUlOffset(1), right), 1);
+    }
+
+    private void ZzAnd() => ApplyIntegerBinary((left, right) => left & right);
+    private void ZzOr() => ApplyIntegerBinary((left, right) => left | right);
+    private void ZzXor() => ApplyIntegerBinary((left, right) => left ^ right);
+    private void ZzNot() => dtp.SetUlOffset(dtp.GetUlOffset(1) ^ uint.MaxValue, 1);
+    private void ZzAndDimm() => dtp.SetUlOffset(dtp.GetUlOffset(1) & mp.FetchMcodeInt(), 1);
+    private void ZzOrWimm() => dtp.SetUlOffset(dtp.GetUlOffset(1) | mp.FetchMcode(), 1);
+    private void ZzOrDimm() => dtp.SetUlOffset(dtp.GetUlOffset(1) | mp.FetchMcodeInt(), 1);
+
+    private void Pack()
+    {
+        uint lowWord = PopIntegerOfQuad() & 0xFFFF;
+        uint highWord = dtp.GetUlOffset(1) & 0xFFFF;
+        dtp.SetUlOffset((highWord << 16) | lowWord, 1);
+    }
+
+    private void Unpack()
+    {
+        uint value = dtp.GetUlOffset(1);
+        dtp.SetUlOffset(value >> 16, 1);
+        dtp.PushUl(value & 0xFFFF);
+        dtp.PushUl(0);
+    }
+
+    private void Mitasu()
+    {
+        uint length = PopIntegerOfQuad();
+        uint address = PopIntegerOfQuad();
+        byte value = unchecked((byte)PopIntegerOfQuad());
+        byte[] bytes = new byte[checked((int)length)];
+        Array.Fill(bytes, value);
+        WriteMemory(address, bytes);
+    }
+
+    private void Tenso()
+    {
+        uint length = PopIntegerOfQuad();
+        uint target = PopIntegerOfQuad();
+        uint source = PopIntegerOfQuad();
+        byte[] bytes = ReadStringBytes(source, length);
+        WriteMemory(target, bytes);
+    }
+
+    private void Syousuumadewaru()
+    {
+        double divisor = PopSignedIntegerOfQuad();
+        double dividend = PopSignedIntegerOfQuad();
+        PushFloat(dividend / divisor);
+    }
+
+    private void Syousuka() => PushFloat(PopSignedIntegerOfQuad());
+
+    private void Seisuka()
+    {
+        int value = unchecked((int)PopFloat());
+        dtp.PushUl(unchecked((uint)value));
+        dtp.PushUl(0);
+    }
+
+    private void ApplyFloatUnary(Func<double, double> operation) => PushFloat(operation(PopFloat()));
+
+    private void ApplyFloatBinary(Func<double, double, double> operation)
+    {
+        double right = PopFloat();
+        double left = PopFloat();
+        PushFloat(operation(left, right));
+    }
+
+    private void ApplyFloatComparison(Func<double, double, bool> comparison)
+    {
+        double right = PopFloat();
+        double left = PopFloat();
+        dtp.PushUl(comparison(left, right) ? 1u : 0u);
+        dtp.PushUl(0);
+    }
+
+    private void Fkuwae() => ApplyFloatBinary((left, right) => left + right);
+    private void Fhiku() => ApplyFloatBinary((left, right) => left - right);
+    private void Fkake() => ApplyFloatBinary((left, right) => left * right);
+    private void Fwaru() => ApplyFloatBinary((left, right) => left / right);
+    private void Fhitosii() => ApplyFloatComparison((left, right) => left == right);
+    private void Fookii() => ApplyFloatComparison((left, right) => left > right);
+    private void Ftiisai() => ApplyFloatComparison((left, right) => left < right);
+    private void Fijyou() => ApplyFloatComparison((left, right) => left >= right);
+    private void Fika() => ApplyFloatComparison((left, right) => left <= right);
+    private void Fkotonaru() => ApplyFloatComparison((left, right) => left != right);
+
+    private void C_acos() => ApplyFloatUnary(Math.Acos);
+    private void C_asin() => ApplyFloatUnary(Math.Asin);
+    private void C_atan() => ApplyFloatUnary(Math.Atan);
+    private void C_cos() => ApplyFloatUnary(Math.Cos);
+    private void C_sin() => ApplyFloatUnary(Math.Sin);
+    private void C_tan() => ApplyFloatUnary(Math.Tan);
+    private void C_cosh() => ApplyFloatUnary(Math.Cosh);
+    private void C_sinh() => ApplyFloatUnary(Math.Sinh);
+    private void C_tanh() => ApplyFloatUnary(Math.Tanh);
+    private void C_exp() => ApplyFloatUnary(Math.Exp);
+    private void C_log() => ApplyFloatUnary(Math.Log);
+    private void C_log10() => ApplyFloatUnary(Math.Log10);
+    private void C_pow() => ApplyFloatBinary(Math.Pow);
+    private void C_sqrt() => ApplyFloatUnary(Math.Sqrt);
+    private void C_fabs() => ApplyFloatUnary(Math.Abs);
+    private void C_radian() => ApplyFloatUnary(value => (value * Math.PI) / 180.0);
+    private void C_degree() => ApplyFloatUnary(value => (value * 180.0) / Math.PI);
 }

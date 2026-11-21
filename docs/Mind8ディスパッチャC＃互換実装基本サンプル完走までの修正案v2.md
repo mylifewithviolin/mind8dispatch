@@ -494,20 +494,20 @@ MCOのLOCテーブル、単語呼出し、即値長、文字列リテラル長�
 | `0x00EF` | `zzLoop` | [ZzLoop](../CsFunctionsBunki.cs#L90) | 実装済検証済 | [回数指定・脱出・フレーム](../tests/Program.cs#L46) |
 | `0x00F0` | `zzBreakLoop` | [ZzBreakLoop](../CsFunctionsBunki.cs#L105) | 実装済検証済 | [回数指定・脱出・フレーム](../tests/Program.cs#L46) |
 | `0x00F1` | `kaisu` | [Kaisu](../CsFunctionsBunki.cs#L111) | 実装済検証済 | [回数指定・脱出・フレーム](../tests/Program.cs#L46) |
-| `0x00F2` | `kaisuM1` | — | 未実装 | 未登録 |
-| `0x00F3` | `kaisuP1` | — | 未実装 | 未登録 |
-| `0x00F4` | `zenKausu` | — | 未実装 | 未登録 |
-| `0x00F5` | `sotogawaKaisu` | — | 未実装 | 未登録 |
-| `0x00F6` | `sotogawaKaisuM1` | — | 未実装 | 未登録 |
-| `0x00F7` | `sotogawaKaisuP1` | — | 未実装 | 未登録 |
-| `0x00F8` | `sotogawaZenKaisu` | — | 未実装 | 未登録 |
-| `0x00F9` | `zzSelect` | — | 未実装 | 未登録 |
-| `0x00FA` | `zzDcase` | — | 未実装 | 未登録 |
-| `0x00FB` | `zzDrange` | — | 未実装 | 未登録 |
-| `0x00FC` | `zzScase` | — | 未実装 | 未登録 |
+| `0x00F2` | `kaisuM1` | [KaisuM1](../CsFunctionsBunki.cs#L117) | 実装済検証済 | [回数・case opcodeテスト](../tests/Program.cs#L1742) |
+| `0x00F3` | `kaisuP1` | [KaisuP1](../CsFunctionsBunki.cs#L118) | 実装済検証済 | [回数・case opcodeテスト](../tests/Program.cs#L1742) |
+| `0x00F4` | `zenKausu` | [ZenKausu](../CsFunctionsBunki.cs#L119) | 実装済検証済 | [回数・case opcodeテスト](../tests/Program.cs#L1742) |
+| `0x00F5` | `sotogawaKaisu` | [SotogawaKaisu](../CsFunctionsBunki.cs#L120) | 実装済検証済 | [回数・case opcodeテスト](../tests/Program.cs#L1742) |
+| `0x00F6` | `sotogawaKaisuM1` | [SotogawaKaisuM1](../CsFunctionsBunki.cs#L121) | 実装済検証済 | [回数・case opcodeテスト](../tests/Program.cs#L1742) |
+| `0x00F7` | `sotogawaKaisuP1` | [SotogawaKaisuP1](../CsFunctionsBunki.cs#L122) | 実装済検証済 | [回数・case opcodeテスト](../tests/Program.cs#L1742) |
+| `0x00F8` | `sotogawaZenKaisu` | [SotogawaZenKaisu](../CsFunctionsBunki.cs#L123) | 実装済検証済 | [回数・case opcodeテスト](../tests/Program.cs#L1742) |
+| `0x00F9` | `zzSelect` | [ZzSelect](../CsFunctionsBunki.cs#L134) | 実装済検証済 | [回数・case opcodeテスト](../tests/Program.cs#L1742) |
+| `0x00FA` | `zzDcase` | [ZzDcase](../CsFunctionsBunki.cs#L143) | 実装済検証済 | [回数・case opcodeテスト](../tests/Program.cs#L1742) |
+| `0x00FB` | `zzDrange` | [ZzDrange](../CsFunctionsBunki.cs#L144) | 実装済検証済 | [回数・case opcodeテスト](../tests/Program.cs#L1742) |
+| `0x00FC` | `zzScase` | [ZzScase](../CsFunctionsBunki.cs#L165) | 実装済検証済 | [回数・case opcodeテスト](../tests/Program.cs#L1742) |
 | `0x00FD` | `zzKatu` | [ZzKatu](../CsFunctions1ker.cs#L5) | 実装済検証済 | [論理演算](../tests/Program.cs#L35) |
 | `0x00FE` | `zzMataha` | [ZzMataha](../CsFunctions1ker.cs#L17) | 実装済検証済 | [符号付き変換・スタック順序](../tests/Program.cs#L48) |
-| `0x00FF` | `isTrue` | — | 未実装 | 未登録 |
+| `0x00FF` | `isTrue` | [IsTrue](../CsFunctions1ker.cs#L16) | 実装済検証済 | [回数・case opcodeテスト](../tests/Program.cs#L1742) |
 
 ### 0x0100〜0x01FF
 
@@ -524,95 +524,95 @@ MCOのLOCテーブル、単語呼出し、即値長、文字列リテラル長�
 | `0x0108` | `zzSubWimm` | [ZzSubWimm](../CsFunctions1ker.cs#L177) | 実装済検証済 | [整数部の即値減算](../tests/Program.cs#L36) |
 | `0x0109` | `zzSubDimm` | [ZzSubDimm](../CsFunctions1ker.cs#L184) | 実装済未検証 | 命令単位の期待値照合なし |
 | `0x010A` | `hiku` | [Hiku](../CsFunctions1ker.cs#L192) | 実装済検証済 | [整数演算](../tests/Program.cs#L36) |
-| `0x010B` | `kake` | — | 未実装 | 未登録 |
+| `0x010B` | `kake` | [integer utility handlers](../CsFunctionsNumeric.cs) | 実装済検証済 | [integer utility opcode test](../tests/Program.cs#L1507) |
 | `0x010C` | `waru` | [Waru](../CsFunctions1ker.cs#L203) | 実装済検証済 | [整数演算](../tests/Program.cs#L36) |
 | `0x010D` | `amariToSyou` | [AmariToSyou](../CsFunctions1ker.cs#L27) | 実装済検証済 | [符号付き変換・スタック順序](../tests/Program.cs#L48) |
-| `0x010E` | `syouToAmari` | — | 未実装 | 未登録 |
-| `0x010F` | `amari` | — | 未実装 | 未登録 |
+| `0x010E` | `syouToAmari` | [integer utility handlers](../CsFunctionsNumeric.cs) | 実装済検証済 | [integer utility opcode test](../tests/Program.cs#L1507) |
+| `0x010F` | `amari` | [integer utility handlers](../CsFunctionsNumeric.cs) | 実装済検証済 | [integer utility opcode test](../tests/Program.cs#L1507) |
 | `0x0110` | `tiisai` | [Tiisai](../CsFunctions1ker.cs#L69) | 実装済未検証 | 命令単位の期待値照合なし |
 | `0x0111` | `ijyou` | [Ijyou](../CsFunctions1ker.cs#L40) | 実装済検証済 | [符号付き変換・スタック順序](../tests/Program.cs#L48) |
 | `0x0112` | `ookii` | [Ookii](../CsFunctions1ker.cs#L79) | 実装済検証済 | [符号付き比較](../tests/Program.cs#L34) |
-| `0x0113` | `ika` | — | 未実装 | 未登録 |
+| `0x0113` | `ika` | [integer utility handlers](../CsFunctionsNumeric.cs) | 実装済検証済 | [integer utility opcode test](../tests/Program.cs#L1507) |
 | `0x0114` | `hitosii` | [Hitosii](../CsFunctions1ker.cs#L89) | 実装済未検証 | 命令単位の期待値照合なし |
-| `0x0115` | `kotonaru` | — | 未実装 | 未登録 |
-| `0x0116` | `tisaiHou` | — | 未実装 | 未登録 |
-| `0x0117` | `ookiiHou` | — | 未実装 | 未登録 |
-| `0x0118` | `isHanni` | — | 未実装 | 未登録 |
-| `0x0119` | `dotirakaniHitosii` | — | 未実装 | 未登録 |
+| `0x0115` | `kotonaru` | [integer utility handlers](../CsFunctionsNumeric.cs) | 実装済検証済 | [integer utility opcode test](../tests/Program.cs#L1507) |
+| `0x0116` | `tisaiHou` | [integer utility handlers](../CsFunctionsNumeric.cs) | 実装済検証済 | [integer utility opcode test](../tests/Program.cs#L1507) |
+| `0x0117` | `ookiiHou` | [integer utility handlers](../CsFunctionsNumeric.cs) | 実装済検証済 | [integer utility opcode test](../tests/Program.cs#L1507) |
+| `0x0118` | `isHanni` | [integer utility handlers](../CsFunctionsNumeric.cs) | 実装済検証済 | [integer utility opcode test](../tests/Program.cs#L1507) |
+| `0x0119` | `dotirakaniHitosii` | [integer utility handlers](../CsFunctionsNumeric.cs) | 実装済検証済 | [integer utility opcode test](../tests/Program.cs#L1507) |
 | `0x011A` | `fusu` | [Fusu](../CsFunctions1ker.cs#L50) | 実装済検証済 | [符号付き変換・スタック順序](../tests/Program.cs#L48) |
-| `0x011B` | `zettaiti` | — | 未実装 | 未登録 |
+| `0x011B` | `zettaiti` | [integer utility handlers](../CsFunctionsNumeric.cs) | 実装済検証済 | [integer utility opcode test](../tests/Program.cs#L1507) |
 | `0x011C` | `fukusya` | [Fukusya](../CsFunctions1ker.cs#L58) | 実装済検証済 | [符号付き変換・スタック順序](../tests/Program.cs#L48) |
-| `0x011D` | `pairDeFukusya` | — | 未実装 | 未登録 |
+| `0x011D` | `pairDeFukusya` | [integer utility handlers](../CsFunctionsNumeric.cs) | 実装済検証済 | [integer utility opcode test](../tests/Program.cs#L1507) |
 | `0x011E` | `koukan` | [Koukan](../CsFunctions1ker.cs#L99) | 実装済検証済 | [2ワード交換](../tests/Program.cs#L52) |
-| `0x011F` | `isSei` | — | 未実装 | 未登録 |
-| `0x0120` | `isSeiNoKazu` | — | 未実装 | 未登録 |
+| `0x011F` | `isSei` | [integer utility handlers](../CsFunctionsNumeric.cs) | 実装済検証済 | [integer utility opcode test](../tests/Program.cs#L1507) |
+| `0x0120` | `isSeiNoKazu` | [integer utility handlers](../CsFunctionsNumeric.cs) | 実装済検証済 | [integer utility opcode test](../tests/Program.cs#L1507) |
 | `0x0121` | `isFu` | [IsFu](../CsFunctions1ker.cs#L66) | 実装済検証済 | [符号付き変換・スタック順序](../tests/Program.cs#L48) |
 | `0x0122` | `sute` | [Sute](../CsFunctions1ker.cs#L212) | 実装済未検証 | 命令単位の期待値照合なし。hello/variables通過のみ |
 | `0x0123` | `nibannmeWoSute` | [NibannmeWoSute](../CsFunctions1ker.cs#L220) | 実装済未検証 | 命令単位の期待値照合なし |
 | `0x0124` | `futatuSute` | [FutatuSute](../CsFunctions1ker.cs#L239) | 実装済未検証 | 命令単位の期待値照合なし |
-| `0x0125` | `jyogeNibbleKoukan` | — | 未実装 | 未登録 |
-| `0x0126` | `jyogeByteKoukan` | — | 未実装 | 未登録 |
-| `0x0127` | `jyogeByteKoukan` | — | 未実装 | 未登録 |
-| `0x0128` | `jyogeWordKoukan` | — | 未実装 | 未登録 |
-| `0x0129` | `doubleSwap` | — | 未実装 | 未登録 |
-| `0x012A` | `watasihaBigEndian` | — | 未実装 | 未登録 |
-| `0x012B` | `watasihaLittleEndian` | — | 未実装 | 未登録 |
-| `0x012C` | `jyouiNibble` | — | 未実装 | 未登録 |
-| `0x012D` | `kaiNibble` | — | 未実装 | 未登録 |
-| `0x012E` | `jyouiByte` | — | 未実装 | 未登録 |
-| `0x012F` | `kaiByte` | — | 未実装 | 未登録 |
-| `0x0130` | `jyouiWord` | — | 未実装 | 未登録 |
-| `0x0131` | `kaiWord` | — | 未実装 | 未登録 |
-| `0x0132` | `hidariShift` | — | 未実装 | 未登録 |
-| `0x0133` | `migiShift` | — | 未実装 | 未登録 |
-| `0x0134` | `zzAnd` | — | 未実装 | 未登録 |
-| `0x0135` | `zzOr` | — | 未実装 | 未登録 |
-| `0x0136` | `zzXor` | — | 未実装 | 未登録 |
-| `0x0137` | `zzNot` | — | 未実装 | 未登録 |
+| `0x0125` | `jyogeNibbleKoukan` | [integer utility handlers](../CsFunctionsNumeric.cs) | 実装済検証済 | [integer utility opcode test](../tests/Program.cs#L1507) |
+| `0x0126` | `jyogeByteKoukan` | [integer utility handlers](../CsFunctionsNumeric.cs) | 実装済検証済 | [integer utility opcode test](../tests/Program.cs#L1507) |
+| `0x0127` | `jyogeByteKoukan` | [integer utility handlers](../CsFunctionsNumeric.cs) | 実装済検証済 | [integer utility opcode test](../tests/Program.cs#L1507) |
+| `0x0128` | `jyogeWordKoukan` | [integer utility handlers](../CsFunctionsNumeric.cs) | 実装済検証済 | [integer utility opcode test](../tests/Program.cs#L1507) |
+| `0x0129` | `doubleSwap` | [integer utility handlers](../CsFunctionsNumeric.cs) | 実装済検証済 | [integer utility opcode test](../tests/Program.cs#L1507) |
+| `0x012A` | `watasihaBigEndian` | [integer utility handlers](../CsFunctionsNumeric.cs) | 実装済検証済 | [integer utility opcode test](../tests/Program.cs#L1507) |
+| `0x012B` | `watasihaLittleEndian` | [integer utility handlers](../CsFunctionsNumeric.cs) | 実装済検証済 | [integer utility opcode test](../tests/Program.cs#L1507) |
+| `0x012C` | `jyouiNibble` | [integer utility handlers](../CsFunctionsNumeric.cs) | 実装済検証済 | [integer utility opcode test](../tests/Program.cs#L1507) |
+| `0x012D` | `kaiNibble` | [integer utility handlers](../CsFunctionsNumeric.cs) | 実装済検証済 | [integer utility opcode test](../tests/Program.cs#L1507) |
+| `0x012E` | `jyouiByte` | [integer utility handlers](../CsFunctionsNumeric.cs) | 実装済検証済 | [integer utility opcode test](../tests/Program.cs#L1507) |
+| `0x012F` | `kaiByte` | [integer utility handlers](../CsFunctionsNumeric.cs) | 実装済検証済 | [integer utility opcode test](../tests/Program.cs#L1507) |
+| `0x0130` | `jyouiWord` | [integer utility handlers](../CsFunctionsNumeric.cs) | 実装済検証済 | [integer utility opcode test](../tests/Program.cs#L1507) |
+| `0x0131` | `kaiWord` | [integer utility handlers](../CsFunctionsNumeric.cs) | 実装済検証済 | [integer utility opcode test](../tests/Program.cs#L1507) |
+| `0x0132` | `hidariShift` | [integer utility handlers](../CsFunctionsNumeric.cs) | 実装済検証済 | [integer utility opcode test](../tests/Program.cs#L1507) |
+| `0x0133` | `migiShift` | [integer utility handlers](../CsFunctionsNumeric.cs) | 実装済検証済 | [integer utility opcode test](../tests/Program.cs#L1507) |
+| `0x0134` | `zzAnd` | [integer utility handlers](../CsFunctionsNumeric.cs) | 実装済検証済 | [integer utility opcode test](../tests/Program.cs#L1507) |
+| `0x0135` | `zzOr` | [integer utility handlers](../CsFunctionsNumeric.cs) | 実装済検証済 | [integer utility opcode test](../tests/Program.cs#L1507) |
+| `0x0136` | `zzXor` | [integer utility handlers](../CsFunctionsNumeric.cs) | 実装済検証済 | [integer utility opcode test](../tests/Program.cs#L1507) |
+| `0x0137` | `zzNot` | [integer utility handlers](../CsFunctionsNumeric.cs) | 実装済検証済 | [integer utility opcode test](../tests/Program.cs#L1507) |
 | `0x0138` | `zzAndWimm` | [ZzAndWimm](../CsFunctions1ker.cs#L67) | 実装済検証済 | [符号付き変換・スタック順序](../tests/Program.cs#L48) |
-| `0x0139` | `zzAndDimm` | — | 未実装 | 未登録 |
-| `0x013A` | `zzOrWimm` | — | 未実装 | 未登録 |
-| `0x013B` | `zzOrDimm` | — | 未実装 | 未登録 |
-| `0x013C` | `pack` | — | 未実装 | 未登録 |
-| `0x013D` | `unpack` | — | 未実装 | 未登録 |
-| `0x013E` | `mitasu` | — | 未実装 | 未登録 |
-| `0x013F` | `tenso` | — | 未実装 | 未登録 |
-| `0x0140` | `tenso` | — | 未実装 | 未登録 |
-| `0x0141` | `syousuumadewaru` | — | 未実装 | 未登録 |
-| `0x0142` | `syousuka` | — | 未実装 | 未登録 |
-| `0x0143` | `seisuka` | — | 未実装 | 未登録 |
-| `0x0144` | `fkuwae` | — | 未実装 | 未登録 |
-| `0x0145` | `fhiku` | — | 未実装 | 未登録 |
-| `0x0146` | `fkake` | — | 未実装 | 未登録 |
-| `0x0147` | `fwaru` | — | 未実装 | 未登録 |
-| `0x0148` | `fhitosii` | — | 未実装 | 未登録 |
-| `0x0149` | `fookii` | — | 未実装 | 未登録 |
-| `0x014A` | `ftiisai` | — | 未実装 | 未登録 |
-| `0x014B` | `fijyou` | — | 未実装 | 未登録 |
-| `0x014C` | `fika` | — | 未実装 | 未登録 |
-| `0x014D` | `fkotonaru` | — | 未実装 | 未登録 |
-| `0x014E` | `c_acos` | — | 未実装 | 未登録 |
-| `0x014F` | `c_asin` | — | 未実装 | 未登録 |
-| `0x0150` | `c_atan` | — | 未実装 | 未登録 |
-| `0x0151` | `c_cos` | — | 未実装 | 未登録 |
-| `0x0152` | `c_sin` | — | 未実装 | 未登録 |
-| `0x0153` | `c_tan` | — | 未実装 | 未登録 |
-| `0x0154` | `c_cosh` | — | 未実装 | 未登録 |
-| `0x0155` | `c_sinh` | — | 未実装 | 未登録 |
-| `0x0156` | `c_tanh` | — | 未実装 | 未登録 |
-| `0x0157` | `c_exp` | — | 未実装 | 未登録 |
-| `0x0158` | `c_log` | — | 未実装 | 未登録 |
-| `0x0159` | `c_log10` | — | 未実装 | 未登録 |
-| `0x015A` | `c_pow` | — | 未実装 | 未登録 |
-| `0x015B` | `c_sqrt` | — | 未実装 | 未登録 |
-| `0x015C` | `c_fabs` | — | 未実装 | 未登録 |
-| `0x015D` | `c_radian` | — | 未実装 | 未登録 |
-| `0x015E` | `c_degree` | — | 未実装 | 未登録 |
+| `0x0139` | `zzAndDimm` | [integer utility handlers](../CsFunctionsNumeric.cs) | 実装済検証済 | [integer utility opcode test](../tests/Program.cs#L1507) |
+| `0x013A` | `zzOrWimm` | [integer utility handlers](../CsFunctionsNumeric.cs) | 実装済検証済 | [integer utility opcode test](../tests/Program.cs#L1507) |
+| `0x013B` | `zzOrDimm` | [integer utility handlers](../CsFunctionsNumeric.cs) | 実装済検証済 | [integer utility opcode test](../tests/Program.cs#L1507) |
+| `0x013C` | `pack` | [integer utility handlers](../CsFunctionsNumeric.cs) | 実装済検証済 | [integer utility opcode test](../tests/Program.cs#L1507) |
+| `0x013D` | `unpack` | [integer utility handlers](../CsFunctionsNumeric.cs) | 実装済検証済 | [integer utility opcode test](../tests/Program.cs#L1507) |
+| `0x013E` | `mitasu` | [integer utility handlers](../CsFunctionsNumeric.cs) | 実装済検証済 | [integer utility opcode test](../tests/Program.cs#L1507) |
+| `0x013F` | `tenso` | [integer utility handlers](../CsFunctionsNumeric.cs) | 実装済検証済 | [integer utility opcode test](../tests/Program.cs#L1507) |
+| `0x0140` | `tenso` | [integer utility handlers](../CsFunctionsNumeric.cs) | 実装済検証済 | [integer utility opcode test](../tests/Program.cs#L1507) |
+| `0x0141` | `syousuumadewaru` | [integer utility handlers](../CsFunctionsNumeric.cs) | 実装済検証済 | [integer utility opcode test](../tests/Program.cs#L1507) |
+| `0x0142` | `syousuka` | [integer utility handlers](../CsFunctionsNumeric.cs) | 実装済検証済 | [integer utility opcode test](../tests/Program.cs#L1507) |
+| `0x0143` | `seisuka` | [integer utility handlers](../CsFunctionsNumeric.cs) | 実装済検証済 | [integer utility opcode test](../tests/Program.cs#L1507) |
+| `0x0144` | `fkuwae` | [Fkuwae](../CsFunctionsNumeric.cs#L177) | 実装済検証済 | [浮動小数点演算・関数テスト](../tests/Program.cs#L1428) |
+| `0x0145` | `fhiku` | [Fhiku](../CsFunctionsNumeric.cs#L178) | 実装済検証済 | [浮動小数点演算・関数テスト](../tests/Program.cs#L1428) |
+| `0x0146` | `fkake` | [Fkake](../CsFunctionsNumeric.cs#L179) | 実装済検証済 | [浮動小数点演算・関数テスト](../tests/Program.cs#L1428) |
+| `0x0147` | `fwaru` | [Fwaru](../CsFunctionsNumeric.cs#L180) | 実装済検証済 | [浮動小数点演算・関数テスト](../tests/Program.cs#L1428) |
+| `0x0148` | `fhitosii` | [Fhitosii](../CsFunctionsNumeric.cs#L181) | 実装済検証済 | [浮動小数点演算・関数テスト](../tests/Program.cs#L1428) |
+| `0x0149` | `fookii` | [Fookii](../CsFunctionsNumeric.cs#L182) | 実装済検証済 | [浮動小数点演算・関数テスト](../tests/Program.cs#L1428) |
+| `0x014A` | `ftiisai` | [Ftiisai](../CsFunctionsNumeric.cs#L183) | 実装済検証済 | [浮動小数点演算・関数テスト](../tests/Program.cs#L1428) |
+| `0x014B` | `fijyou` | [Fijyou](../CsFunctionsNumeric.cs#L184) | 実装済検証済 | [浮動小数点演算・関数テスト](../tests/Program.cs#L1428) |
+| `0x014C` | `fika` | [Fika](../CsFunctionsNumeric.cs#L185) | 実装済検証済 | [浮動小数点演算・関数テスト](../tests/Program.cs#L1428) |
+| `0x014D` | `fkotonaru` | [Fkotonaru](../CsFunctionsNumeric.cs#L186) | 実装済検証済 | [浮動小数点演算・関数テスト](../tests/Program.cs#L1428) |
+| `0x014E` | `c_acos` | [C_acos](../CsFunctionsNumeric.cs#L188) | 実装済検証済 | [浮動小数点演算・関数テスト](../tests/Program.cs#L1428) |
+| `0x014F` | `c_asin` | [C_asin](../CsFunctionsNumeric.cs#L189) | 実装済検証済 | [浮動小数点演算・関数テスト](../tests/Program.cs#L1428) |
+| `0x0150` | `c_atan` | [C_atan](../CsFunctionsNumeric.cs#L190) | 実装済検証済 | [浮動小数点演算・関数テスト](../tests/Program.cs#L1428) |
+| `0x0151` | `c_cos` | [C_cos](../CsFunctionsNumeric.cs#L191) | 実装済検証済 | [浮動小数点演算・関数テスト](../tests/Program.cs#L1428) |
+| `0x0152` | `c_sin` | [C_sin](../CsFunctionsNumeric.cs#L192) | 実装済検証済 | [浮動小数点演算・関数テスト](../tests/Program.cs#L1428) |
+| `0x0153` | `c_tan` | [C_tan](../CsFunctionsNumeric.cs#L193) | 実装済検証済 | [浮動小数点演算・関数テスト](../tests/Program.cs#L1428) |
+| `0x0154` | `c_cosh` | [C_cosh](../CsFunctionsNumeric.cs#L194) | 実装済検証済 | [浮動小数点演算・関数テスト](../tests/Program.cs#L1428) |
+| `0x0155` | `c_sinh` | [C_sinh](../CsFunctionsNumeric.cs#L195) | 実装済検証済 | [浮動小数点演算・関数テスト](../tests/Program.cs#L1428) |
+| `0x0156` | `c_tanh` | [C_tanh](../CsFunctionsNumeric.cs#L196) | 実装済検証済 | [浮動小数点演算・関数テスト](../tests/Program.cs#L1428) |
+| `0x0157` | `c_exp` | [C_exp](../CsFunctionsNumeric.cs#L197) | 実装済検証済 | [浮動小数点演算・関数テスト](../tests/Program.cs#L1428) |
+| `0x0158` | `c_log` | [C_log](../CsFunctionsNumeric.cs#L198) | 実装済検証済 | [浮動小数点演算・関数テスト](../tests/Program.cs#L1428) |
+| `0x0159` | `c_log10` | [C_log10](../CsFunctionsNumeric.cs#L199) | 実装済検証済 | [浮動小数点演算・関数テスト](../tests/Program.cs#L1428) |
+| `0x015A` | `c_pow` | [C_pow](../CsFunctionsNumeric.cs#L200) | 実装済検証済 | [浮動小数点演算・関数テスト](../tests/Program.cs#L1428) |
+| `0x015B` | `c_sqrt` | [C_sqrt](../CsFunctionsNumeric.cs#L201) | 実装済検証済 | [浮動小数点演算・関数テスト](../tests/Program.cs#L1428) |
+| `0x015C` | `c_fabs` | [C_fabs](../CsFunctionsNumeric.cs#L202) | 実装済検証済 | [浮動小数点演算・関数テスト](../tests/Program.cs#L1428) |
+| `0x015D` | `c_radian` | [C_radian](../CsFunctionsNumeric.cs#L203) | 実装済検証済 | [浮動小数点演算・関数テスト](../tests/Program.cs#L1428) |
+| `0x015E` | `c_degree` | [C_degree](../CsFunctionsNumeric.cs#L204) | 実装済検証済 | [浮動小数点演算・関数テスト](../tests/Program.cs#L1428) |
 | `0x015F` | `isKuretu` | [IsKuretu](../CsFunctions2ker0.cs#L5) | 実装済未検証 | 命令単位の期待値照合なし |
 | `0x0160` | `isNotKuretu` | [IsNotKuretu](../CsFunctions2ker0.cs#L13) | 実装済未検証 | 命令単位の期待値照合なし |
 | `0x0161` | `zzCtoS` | [ZzCtoS](../CsFunctions2ker0.cs#L22) | 実装済検証済 | [文字コード・スタック実体参照](../tests/Program.cs#L42) |
-| `0x0162` | `sentoKetasuSeigen` | — | 未実装 | 未登録 |
-| `0x0163` | `matubiKetasuSeigen` | — | 未実装 | 未登録 |
+| `0x0162` | `sentoKetasuSeigen` | [SentoKetasuSeigen](../CsFunctions2ker0.cs#L19) | 実装済検証済 | [文字列境界・Xvarテスト](../tests/Program.cs#L950) |
+| `0x0163` | `matubiKetasuSeigen` | [MatubiKetasuSeigen](../CsFunctions2ker0.cs#L20) | 実装済検証済 | [文字列境界・Xvarテスト](../tests/Program.cs#L950) |
 | `0x0164` | `zzPopJvar` | [ZzPopJvar](../CsFunctions2ker0.cs#L52) | 実装済検証済 | [実体格納・容量・文字境界](../tests/Program.cs#L44) |
 | `0x0165` | `zzWriteJvar` | [ZzWriteJvar](../CsFunctions2ker0.cs#L54) | 実装済検証済 | [実体格納・容量・文字境界](../tests/Program.cs#L44) |
 | `0x0166` | `zzWriteJvarLocal` | [ZzWriteJvarLocal](../CsFunctions2ker0.cs#L60) | 実装済検証済 | [実体格納・容量・文字境界](../tests/Program.cs#L44) |
@@ -620,150 +620,150 @@ MCOのLOCテーブル、単語呼出し、即値長、文字列リテラル長�
 | `0x0168` | `zzClearJvar` | [ZzClearJvar](../CsFunctions2ker0.cs#L73) | 実装済未検証 | 命令単位の期待値照合なし |
 | `0x0169` | `zzClearJvar` | [ZzClearJvar](../CsFunctions2ker0.cs#L73) | 実装済検証済 | [既定実体・ヘッダー](../tests/Program.cs#L45) |
 | `0x016A` | `mojiretuJittaiWoSansyo` | [MojiretuJittaiWoSansyo](../CsFunctions2ker0.cs#L89) | 実装済検証済 | [既定実体・ヘッダー](../tests/Program.cs#L45) |
-| `0x016B` | `zzPopXvar` | — | 未実装 | 未登録 |
-| `0x016C` | `zzWriteXvar` | — | 未実装 | 未登録 |
-| `0x016D` | `zzWriteXvarLocal` | — | 未実装 | 未登録 |
+| `0x016B` | `zzPopXvar` | [ZzPopXvar](../CsFunctions2ker0.cs#L110) | 実装済検証済 | [文字列境界・Xvarテスト](../tests/Program.cs#L950) |
+| `0x016C` | `zzWriteXvar` | [ZzWriteXvar](../CsFunctions2ker0.cs#L112) | 実装済検証済 | [文字列境界・Xvarテスト](../tests/Program.cs#L950) |
+| `0x016D` | `zzWriteXvarLocal` | [ZzWriteXvarLocal](../CsFunctions2ker0.cs#L118) | 実装済検証済 | [文字列境界・Xvarテスト](../tests/Program.cs#L950) |
 | `0x016E` | `zzClearXvar` | [ZzClearXvar](../CsFunctionsCompword.cs#L1304) | 実装済未検証 | 命令単位の期待値照合なし。hello/variables通過のみ |
-| `0x016F` | `tanjyunMojiretuJittaiWoClear` | — | 未実装 | 未登録 |
+| `0x016F` | `tanjyunMojiretuJittaiWoClear` | [TanjyunMojiretuJittaiWoClear](../CsFunctions2ker0.cs#L124) | 実装済検証済 | [文字列境界・Xvarテスト](../tests/Program.cs#L950) |
 | `0x0170` | `chgDefaultStruct` | [ChgDefaultStruct](../CsFunctions2ker0.cs#L95) | 実装済未検証 | 命令単位の期待値照合なし |
 | `0x0171` | `chgDefaultStruct` | [ChgDefaultStruct](../CsFunctions2ker0.cs#L95) | 実装済検証済 | [既定実体・ヘッダー](../tests/Program.cs#L45) |
-| `0x0172` | `mojiretuJittaiJohoWoEru` | — | 未実装 | 未登録 |
+| `0x0172` | `mojiretuJittaiJohoWoEru` | [MojiretuJittaiJohoWoEru](../CsFunctions2ker0.cs#L131) | 実装済検証済 | [文字列境界・Xvarテスト](../tests/Program.cs#L950) |
 | `0x0173` | `tuikaYoyu` | [TuikaYoyu](../CsFunctions2ker1.cs#L14) | 実装済検証済 | [追加余裕・容量・重複領域](../tests/Program.cs#L50) |
-| `0x0174` | `tuikaYoyuForJinfo` | — | 未実装 | 未登録 |
-| `0x0175` | `hidariTuikaYoyu` | — | 未実装 | 未登録 |
-| `0x0176` | `hidariTuikaYoyuForJinfo` | — | 未実装 | 未登録 |
+| `0x0174` | `tuikaYoyuForJinfo` | [TuikaYoyuForJinfo](../CsFunctions2ker1.cs#L21) | 実装済検証済 | [文字列余白・Jinfoテスト](../tests/Program.cs#L1009) |
+| `0x0175` | `hidariTuikaYoyu` | [HidariTuikaYoyu](../CsFunctions2ker1.cs#L28) | 実装済検証済 | [文字列余白・Jinfoテスト](../tests/Program.cs#L1009) |
+| `0x0176` | `hidariTuikaYoyuForJinfo` | [HidariTuikaYoyuForJinfo](../CsFunctions2ker1.cs#L35) | 実装済検証済 | [文字列余白・Jinfoテスト](../tests/Program.cs#L1009) |
 | `0x0177` | `itiMojiTuika` | [ItiMojiTuika](../CsFunctions2ker1.cs#L21) | 実装済検証済 | [追加余裕・容量・重複領域](../tests/Program.cs#L50) |
-| `0x0178` | `itiMojiTuikaForJinfo` | — | 未実装 | 未登録 |
-| `0x0179` | `itiMojiHigaTuika` | — | 未実装 | 未登録 |
+| `0x0178` | `itiMojiTuikaForJinfo` | [ItiMojiTuikaForJinfo](../CsFunctions2ker1.cs#L49) | 実装済検証済 | [文字列余白・Jinfoテスト](../tests/Program.cs#L1009) |
+| `0x0179` | `itiMojiHigaTuika` | [ItiMojiHigaTuika](../CsFunctions2ker1.cs#L69) | 実装済検証済 | [文字列余白・Jinfoテスト](../tests/Program.cs#L1009) |
 | `0x017A` | `itiMojiHigaTuikaForJinfo` | [ItiMojiHigaTuikaForJinfo](../CsFunctions2ker1.cs#L37) | 実装済検証済 | [余白・切出し・文字境界](../tests/Program.cs#L49) |
 | `0x017B` | `tuika` | [Tuika](../CsFunctions2ker1.cs#L53) | 実装済検証済 | [追加余裕・容量・重複領域](../tests/Program.cs#L50) |
-| `0x017C` | `tuikaForJinfo` | — | 未実装 | 未登録 |
-| `0x017D` | `higaTuika` | — | 未実装 | 未登録 |
-| `0x017E` | `higaTuikaForJinfo` | — | 未実装 | 未登録 |
-| `0x017F` | `fillSpace` | — | 未実装 | 未登録 |
-| `0x0180` | `fillSpaceForJinfo` | — | 未実装 | 未登録 |
-| `0x0181` | `migiYose` | — | 未実装 | 未登録 |
+| `0x017C` | `tuikaForJinfo` | [TuikaForJinfo](../CsFunctions2ker1.cs#L103) | 実装済検証済 | [文字列余白・Jinfoテスト](../tests/Program.cs#L1009) |
+| `0x017D` | `higaTuika` | [HigaTuika](../CsFunctions2ker1.cs#L121) | 実装済検証済 | [文字列余白・Jinfoテスト](../tests/Program.cs#L1009) |
+| `0x017E` | `higaTuikaForJinfo` | [HigaTuikaForJinfo](../CsFunctions2ker1.cs#L127) | 実装済検証済 | [文字列余白・Jinfoテスト](../tests/Program.cs#L1009) |
+| `0x017F` | `fillSpace` | [FillSpace](../CsFunctions2ker1.cs#L148) | 実装済検証済 | [文字列余白・Jinfoテスト](../tests/Program.cs#L1009) |
+| `0x0180` | `fillSpaceForJinfo` | [FillSpaceForJinfo](../CsFunctions2ker1.cs#L153) | 実装済検証済 | [文字列余白・Jinfoテスト](../tests/Program.cs#L1009) |
+| `0x0181` | `migiYose` | [MigiYose](../CsFunctions2ker1.cs#L181) | 実装済検証済 | [文字列余白・Jinfoテスト](../tests/Program.cs#L1009) |
 | `0x0182` | `migiYoseForJinfo` | [MigiYoseForJinfo](../CsFunctions2ker1.cs#L67) | 実装済検証済 | [余白・切出し・文字境界](../tests/Program.cs#L49) |
-| `0x0183` | `sukosiMigiYose` | — | 未実装 | 未登録 |
-| `0x0184` | `sukosiMigiYoseForJinfo` | — | 未実装 | 未登録 |
-| `0x0185` | `hidariYose` | — | 未実装 | 未登録 |
-| `0x0186` | `hidariYoseForJinfo` | — | 未実装 | 未登録 |
-| `0x0187` | `sukosiHidariYose` | — | 未実装 | 未登録 |
-| `0x0188` | `sukosiHidariYoseForJinfo` | — | 未実装 | 未登録 |
-| `0x0189` | `jittaiCountSettei` | — | 未実装 | 未登録 |
-| `0x018A` | `jittaiCountSetteiForJinfo` | — | 未実装 | 未登録 |
-| `0x018B` | `jittaiOffsetSettei` | — | 未実装 | 未登録 |
-| `0x018C` | `jittaiOffsetSetteiForJinfo` | — | 未実装 | 未登録 |
-| `0x018D` | `ooMojiHenkan` | — | 未実装 | 未登録 |
-| `0x018E` | `ooMojiHenkanForJinfo` | — | 未実装 | 未登録 |
-| `0x018F` | `itiBaitoSakujyoForJvar` | — | 未実装 | 未登録 |
-| `0x0190` | `itiBaitoSakujyo` | — | 未実装 | 未登録 |
-| `0x0191` | `itiBaitoSakujyoForJinfo` | — | 未実装 | 未登録 |
-| `0x0192` | `itiMojiSakujyoForJvar` | — | 未実装 | 未登録 |
-| `0x0193` | `itiMojiSakujyo` | — | 未実装 | 未登録 |
-| `0x0194` | `itiMojiSakujyoForJinfo` | — | 未実装 | 未登録 |
-| `0x0195` | `itiBaitoMigiSakujyoForJvar` | — | 未実装 | 未登録 |
-| `0x0196` | `itiBaitoMigiSakujyo` | — | 未実装 | 未登録 |
-| `0x0197` | `itiBaitoMigiSakujyoForJinfo` | — | 未実装 | 未登録 |
-| `0x0198` | `itiMojiMigiSakujyoForJvar` | — | 未実装 | 未登録 |
-| `0x0199` | `itiMojiMigiSakujyo` | — | 未実装 | 未登録 |
-| `0x019A` | `itiMojiMigiSakujyoForJinfo` | — | 未実装 | 未登録 |
-| `0x019B` | `itiBaitoKiridasiForJvar` | — | 未実装 | 未登録 |
-| `0x019C` | `itiBaitoKiridasi` | — | 未実装 | 未登録 |
-| `0x019D` | `itiBaitoKiridasiForJinfo` | — | 未実装 | 未登録 |
-| `0x019E` | `itiMojiKiridasiForJvar` | — | 未実装 | 未登録 |
-| `0x019F` | `itiMojiKiridasi` | — | 未実装 | 未登録 |
-| `0x01A0` | `itiMojiKiridasiForJinfo` | — | 未実装 | 未登録 |
-| `0x01A1` | `itiBaitoMigiKiridasiForJvar` | — | 未実装 | 未登録 |
-| `0x01A2` | `itiBaitoMigiKiridasi` | — | 未実装 | 未登録 |
-| `0x01A3` | `itiBaitoMigiKiridasiForJinfo` | — | 未実装 | 未登録 |
-| `0x01A4` | `itiMojiMigiKiridasiForJvar` | — | 未実装 | 未登録 |
+| `0x0183` | `sukosiMigiYose` | [SukosiMigiYose](../CsFunctions2ker1.cs#L192) | 実装済検証済 | [文字列寄せ・情報設定テスト](../tests/Program.cs#L1141) |
+| `0x0184` | `sukosiMigiYoseForJinfo` | [SukosiMigiYoseForJinfo](../CsFunctions2ker1.cs#L200) | 実装済検証済 | [文字列寄せ・情報設定テスト](../tests/Program.cs#L1141) |
+| `0x0185` | `hidariYose` | [HidariYose](../CsFunctions2ker1.cs#L219) | 実装済検証済 | [文字列寄せ・情報設定テスト](../tests/Program.cs#L1141) |
+| `0x0186` | `hidariYoseForJinfo` | [HidariYoseForJinfo](../CsFunctions2ker1.cs#L225) | 実装済検証済 | [文字列寄せ・情報設定テスト](../tests/Program.cs#L1141) |
+| `0x0187` | `sukosiHidariYose` | [SukosiHidariYose](../CsFunctions2ker1.cs#L231) | 実装済検証済 | [文字列寄せ・情報設定テスト](../tests/Program.cs#L1141) |
+| `0x0188` | `sukosiHidariYoseForJinfo` | [SukosiHidariYoseForJinfo](../CsFunctions2ker1.cs#L239) | 実装済検証済 | [文字列寄せ・情報設定テスト](../tests/Program.cs#L1141) |
+| `0x0189` | `jittaiCountSettei` | [JittaiCountSettei](../CsFunctions2ker1.cs#L260) | 実装済検証済 | [文字列寄せ・情報設定テスト](../tests/Program.cs#L1141) |
+| `0x018A` | `jittaiCountSetteiForJinfo` | [JittaiCountSetteiForJinfo](../CsFunctions2ker1.cs#L266) | 実装済検証済 | [文字列寄せ・情報設定テスト](../tests/Program.cs#L1141) |
+| `0x018B` | `jittaiOffsetSettei` | [JittaiOffsetSettei](../CsFunctions2ker1.cs#L272) | 実装済検証済 | [文字列寄せ・情報設定テスト](../tests/Program.cs#L1141) |
+| `0x018C` | `jittaiOffsetSetteiForJinfo` | [JittaiOffsetSetteiForJinfo](../CsFunctions2ker1.cs#L278) | 実装済検証済 | [文字列寄せ・情報設定テスト](../tests/Program.cs#L1141) |
+| `0x018D` | `ooMojiHenkan` | [OoMojiHenkan](../CsFunctions2ker1.cs#L284) | 実装済検証済 | [大文字変換テスト](../tests/Program.cs#L1234) |
+| `0x018E` | `ooMojiHenkanForJinfo` | [OoMojiHenkanForJinfo](../CsFunctions2ker1.cs#L290) | 実装済検証済 | [大文字変換テスト](../tests/Program.cs#L1234) |
+| `0x018F` | `itiBaitoSakujyoForJvar` | [ItiBaitoSakujyoForJvar](../CsFunctions2ker2.cs#L25) | 実装済検証済 | [文字列削除テスト](../tests/Program.cs#L1271) |
+| `0x0190` | `itiBaitoSakujyo` | [ItiBaitoSakujyo](../CsFunctions2ker2.cs#L26) | 実装済検証済 | [文字列削除テスト](../tests/Program.cs#L1271) |
+| `0x0191` | `itiBaitoSakujyoForJinfo` | [ItiBaitoSakujyoForJinfo](../CsFunctions2ker2.cs#L31) | 実装済検証済 | [文字列削除テスト](../tests/Program.cs#L1271) |
+| `0x0192` | `itiMojiSakujyoForJvar` | [ItiMojiSakujyoForJvar](../CsFunctions2ker2.cs#L32) | 実装済検証済 | [文字列削除テスト](../tests/Program.cs#L1271) |
+| `0x0193` | `itiMojiSakujyo` | [ItiMojiSakujyo](../CsFunctions2ker2.cs#L33) | 実装済検証済 | [文字列削除テスト](../tests/Program.cs#L1271) |
+| `0x0194` | `itiMojiSakujyoForJinfo` | [ItiMojiSakujyoForJinfo](../CsFunctions2ker2.cs#L38) | 実装済検証済 | [文字列削除テスト](../tests/Program.cs#L1271) |
+| `0x0195` | `itiBaitoMigiSakujyoForJvar` | [ItiBaitoMigiSakujyoForJvar](../CsFunctions2ker2.cs#L39) | 実装済検証済 | [文字列削除テスト](../tests/Program.cs#L1271) |
+| `0x0196` | `itiBaitoMigiSakujyo` | [ItiBaitoMigiSakujyo](../CsFunctions2ker2.cs#L40) | 実装済検証済 | [文字列削除テスト](../tests/Program.cs#L1271) |
+| `0x0197` | `itiBaitoMigiSakujyoForJinfo` | [ItiBaitoMigiSakujyoForJinfo](../CsFunctions2ker2.cs#L45) | 実装済検証済 | [文字列削除テスト](../tests/Program.cs#L1271) |
+| `0x0198` | `itiMojiMigiSakujyoForJvar` | [ItiMojiMigiSakujyoForJvar](../CsFunctions2ker2.cs#L46) | 実装済検証済 | [文字列削除テスト](../tests/Program.cs#L1271) |
+| `0x0199` | `itiMojiMigiSakujyo` | [ItiMojiMigiSakujyo](../CsFunctions2ker2.cs#L47) | 実装済検証済 | [文字列削除テスト](../tests/Program.cs#L1271) |
+| `0x019A` | `itiMojiMigiSakujyoForJinfo` | [ItiMojiMigiSakujyoForJinfo](../CsFunctions2ker2.cs#L52) | 実装済検証済 | [文字列削除テスト](../tests/Program.cs#L1271) |
+| `0x019B` | `itiBaitoKiridasiForJvar` | [ItiBaitoKiridasiForJvar](../CsFunctions2ker2.cs#L83) | 実装済検証済 | [文字列切出しテスト](../tests/Program.cs#L1356) |
+| `0x019C` | `itiBaitoKiridasi` | [ItiBaitoKiridasi](../CsFunctions2ker2.cs#L84) | 実装済検証済 | [文字列切出しテスト](../tests/Program.cs#L1356) |
+| `0x019D` | `itiBaitoKiridasiForJinfo` | [ItiBaitoKiridasiForJinfo](../CsFunctions2ker2.cs#L85) | 実装済検証済 | [文字列切出しテスト](../tests/Program.cs#L1356) |
+| `0x019E` | `itiMojiKiridasiForJvar` | [ItiMojiKiridasiForJvar](../CsFunctions2ker2.cs#L86) | 実装済検証済 | [文字列切出しテスト](../tests/Program.cs#L1356) |
+| `0x019F` | `itiMojiKiridasi` | [ItiMojiKiridasi](../CsFunctions2ker2.cs#L87) | 実装済検証済 | [文字列切出しテスト](../tests/Program.cs#L1356) |
+| `0x01A0` | `itiMojiKiridasiForJinfo` | [ItiMojiKiridasiForJinfo](../CsFunctions2ker2.cs#L88) | 実装済検証済 | [文字列切出しテスト](../tests/Program.cs#L1356) |
+| `0x01A1` | `itiBaitoMigiKiridasiForJvar` | [ItiBaitoMigiKiridasiForJvar](../CsFunctions2ker2.cs#L89) | 実装済検証済 | [文字列切出しテスト](../tests/Program.cs#L1356) |
+| `0x01A2` | `itiBaitoMigiKiridasi` | [ItiBaitoMigiKiridasi](../CsFunctions2ker2.cs#L90) | 実装済検証済 | [文字列切出しテスト](../tests/Program.cs#L1356) |
+| `0x01A3` | `itiBaitoMigiKiridasiForJinfo` | [ItiBaitoMigiKiridasiForJinfo](../CsFunctions2ker2.cs#L91) | 実装済検証済 | [文字列切出しテスト](../tests/Program.cs#L1356) |
+| `0x01A4` | `itiMojiMigiKiridasiForJvar` | [ItiMojiMigiKiridasiForJvar](../CsFunctions2ker2.cs#L92) | 実装済検証済 | [文字列切出しテスト](../tests/Program.cs#L1356) |
 | `0x01A5` | `itiMojiMigiKiridasi` | [ItiMojiMigiKiridasi](../CsFunctions2ker2.cs#L58) | 実装済検証済 | [余白・切出し・文字境界](../tests/Program.cs#L49) |
-| `0x01A6` | `itiMojiMigiKiridasiForJinfo` | — | 未実装 | 未登録 |
-| `0x01A7` | `baitoRetuKiridasiForJvar` | — | 未実装 | 未登録 |
-| `0x01A8` | `baitoRetuKiridasi` | — | 未実装 | 未登録 |
-| `0x01A9` | `baitoRetuKiridasiForJinfo` | — | 未実装 | 未登録 |
-| `0x01AA` | `baitoRetuMigiKiridasiForJvar` | — | 未実装 | 未登録 |
-| `0x01AB` | `baitoRetuMigiKiridasi` | — | 未実装 | 未登録 |
-| `0x01AC` | `baitoRetuMigiKiridasiForJinfo` | — | 未実装 | 未登録 |
-| `0x01AD` | `baitoRetuSakujyoForJvar` | — | 未実装 | 未登録 |
-| `0x01AE` | `baitoRetuSakujyo` | — | 未実装 | 未登録 |
-| `0x01AF` | `baitoRetuSakujyoForJinfo` | — | 未実装 | 未登録 |
-| `0x01B0` | `baitoRetuMigiSakujyoForJvar` | — | 未実装 | 未登録 |
-| `0x01B1` | `baitoRetuMigiSakujyo` | — | 未実装 | 未登録 |
-| `0x01B2` | `baitoRetuMigiSakujyoForJinfo` | — | 未実装 | 未登録 |
-| `0x01B3` | `kiridasiForJvar` | — | 未実装 | 未登録 |
-| `0x01B4` | `kiridasi` | — | 未実装 | 未登録 |
-| `0x01B5` | `kiridasiForJinfo` | — | 未実装 | 未登録 |
-| `0x01B6` | `migiKiridasiForJvar` | — | 未実装 | 未登録 |
-| `0x01B7` | `migiKiridasi` | [MigiKiridasi](../CsFunctions2ker2.cs#L22) | 実装済検証済 | [局所文字列切出し](../tests/Program.cs#L40) |
-| `0x01B8` | `migiKiridasiForJinfo` | — | 未実装 | 未登録 |
-| `0x01B9` | `bundanForJvar` | — | 未実装 | 未登録 |
-| `0x01BA` | `bundan` | — | 未実装 | 未登録 |
-| `0x01BB` | `bundanForJinfo` | — | 未実装 | 未登録 |
-| `0x01BC` | `byte_bundanForJvar` | — | 未実装 | 未登録 |
-| `0x01BD` | `byte_bundan` | — | 未実装 | 未登録 |
-| `0x01BE` | `byte_bundanForJinfo` | — | 未実装 | 未登録 |
-| `0x01BF` | `sakujyoForJvar` | — | 未実装 | 未登録 |
-| `0x01C0` | `sakujyo` | — | 未実装 | 未登録 |
-| `0x01C1` | `sakujyoForJinfo` | — | 未実装 | 未登録 |
-| `0x01C2` | `migiSakujyoForJvar` | — | 未実装 | 未登録 |
-| `0x01C3` | `migiSakujyo` | — | 未実装 | 未登録 |
-| `0x01C4` | `migiSakujyoForJinfo` | — | 未実装 | 未登録 |
-| `0x01C5` | `kuhakuWoNozokuForJvar` | — | 未実装 | 未登録 |
-| `0x01C6` | `kuhakuWoNozoku` | — | 未実装 | 未登録 |
-| `0x01C7` | `kuhakuWoNozokuForJinfo` | — | 未実装 | 未登録 |
-| `0x01C8` | `migiKuhakuWoNozokuForJvar` | — | 未実装 | 未登録 |
-| `0x01C9` | `migiKuhakuWoNozoku` | — | 未実装 | 未登録 |
-| `0x01CA` | `migiKuhakuWoNozokuForJinfo` | — | 未実装 | 未登録 |
-| `0x01CB` | `tangoKiridasiForJvar` | — | 未実装 | 未登録 |
-| `0x01CC` | `tangoKiridasi` | — | 未実装 | 未登録 |
-| `0x01CD` | `tangoKiridasiForJinfo` | — | 未実装 | 未登録 |
-| `0x01CE` | `mojisu` | — | 未実装 | 未登録 |
-| `0x01CF` | `satanBaito` | — | 未実装 | 未登録 |
-| `0x01D0` | `satanMoji` | — | 未実装 | 未登録 |
-| `0x01D1` | `utanBaito` | — | 未実装 | 未登録 |
+| `0x01A6` | `itiMojiMigiKiridasiForJinfo` | [ItiMojiMigiKiridasiForJinfo](../CsFunctions2ker2.cs#L93) | 実装済検証済 | [文字列切出しテスト](../tests/Program.cs#L1356) |
+| `0x01A7` | `baitoRetuKiridasiForJvar` | [BaitoRetuKiridasiForJvar](../CsFunctions2ker2.cs#L159) | 実装済検証済 | [バイト範囲テスト](../tests/Program.cs#L1417) |
+| `0x01A8` | `baitoRetuKiridasi` | [BaitoRetuKiridasi](../CsFunctions2ker2.cs#L160) | 実装済検証済 | [バイト範囲テスト](../tests/Program.cs#L1417) |
+| `0x01A9` | `baitoRetuKiridasiForJinfo` | [BaitoRetuKiridasiForJinfo](../CsFunctions2ker2.cs#L161) | 実装済検証済 | [バイト範囲テスト](../tests/Program.cs#L1417) |
+| `0x01AA` | `baitoRetuMigiKiridasiForJvar` | [BaitoRetuMigiKiridasiForJvar](../CsFunctions2ker2.cs#L162) | 実装済検証済 | [バイト範囲テスト](../tests/Program.cs#L1417) |
+| `0x01AB` | `baitoRetuMigiKiridasi` | [BaitoRetuMigiKiridasi](../CsFunctions2ker2.cs#L163) | 実装済検証済 | [バイト範囲テスト](../tests/Program.cs#L1417) |
+| `0x01AC` | `baitoRetuMigiKiridasiForJinfo` | [BaitoRetuMigiKiridasiForJinfo](../CsFunctions2ker2.cs#L164) | 実装済検証済 | [バイト範囲テスト](../tests/Program.cs#L1417) |
+| `0x01AD` | `baitoRetuSakujyoForJvar` | [BaitoRetuSakujyoForJvar](../CsFunctions2ker2.cs#L165) | 実装済検証済 | [バイト範囲テスト](../tests/Program.cs#L1417) |
+| `0x01AE` | `baitoRetuSakujyo` | [BaitoRetuSakujyo](../CsFunctions2ker2.cs#L166) | 実装済検証済 | [バイト範囲テスト](../tests/Program.cs#L1417) |
+| `0x01AF` | `baitoRetuSakujyoForJinfo` | [BaitoRetuSakujyoForJinfo](../CsFunctions2ker2.cs#L167) | 実装済検証済 | [バイト範囲テスト](../tests/Program.cs#L1417) |
+| `0x01B0` | `baitoRetuMigiSakujyoForJvar` | [BaitoRetuMigiSakujyoForJvar](../CsFunctions2ker2.cs#L168) | 実装済検証済 | [バイト範囲テスト](../tests/Program.cs#L1417) |
+| `0x01B1` | `baitoRetuMigiSakujyo` | [BaitoRetuMigiSakujyo](../CsFunctions2ker2.cs#L169) | 実装済検証済 | [バイト範囲テスト](../tests/Program.cs#L1417) |
+| `0x01B2` | `baitoRetuMigiSakujyoForJinfo` | [BaitoRetuMigiSakujyoForJinfo](../CsFunctions2ker2.cs#L170) | 実装済検証済 | [バイト範囲テスト](../tests/Program.cs#L1417) |
+| `0x01B3` | `kiridasiForJvar` | [KiridasiForJvar](../CsFunctions2ker2.cs#L252) | 実装済検証済 | [文字数切出しテスト](../tests/Program.cs#L1495) |
+| `0x01B4` | `kiridasi` | [Kiridasi](../CsFunctions2ker2.cs#L253) | 実装済検証済 | [文字数切出しテスト](../tests/Program.cs#L1495) |
+| `0x01B5` | `kiridasiForJinfo` | [KiridasiForJinfo](../CsFunctions2ker2.cs#L254) | 実装済検証済 | [文字数切出しテスト](../tests/Program.cs#L1495) |
+| `0x01B6` | `migiKiridasiForJvar` | [MigiKiridasiForJvar](../CsFunctions2ker2.cs#L255) | 実装済検証済 | [文字数切出しテスト](../tests/Program.cs#L1495) |
+| `0x01B7` | `migiKiridasi` | [MigiKiridasi](../CsFunctions2ker2.cs#L257) | 実装済検証済 | [文字数切出しテスト](../tests/Program.cs#L1495) |
+| `0x01B8` | `migiKiridasiForJinfo` | [MigiKiridasiForJinfo](../CsFunctions2ker2.cs#L256) | 実装済検証済 | [文字数切出しテスト](../tests/Program.cs#L1495) |
+| `0x01B9` | `bundanForJvar` | [BundanForJvar](../CsFunctions2ker2.cs#L261) | 実装済検証済 | [文字・バイト区切りテスト](../tests/Program.cs#L1543) |
+| `0x01BA` | `bundan` | [Bundan](../CsFunctions2ker2.cs#L262) | 実装済検証済 | [文字・バイト区切りテスト](../tests/Program.cs#L1543) |
+| `0x01BB` | `bundanForJinfo` | [BundanForJinfo](../CsFunctions2ker2.cs#L263) | 実装済検証済 | [文字・バイト区切りテスト](../tests/Program.cs#L1543) |
+| `0x01BC` | `byte_bundanForJvar` | [ByteBundanForJvar](../CsFunctions2ker2.cs#L264) | 実装済検証済 | [文字・バイト区切りテスト](../tests/Program.cs#L1543) |
+| `0x01BD` | `byte_bundan` | [ByteBundan](../CsFunctions2ker2.cs#L265) | 実装済検証済 | [文字・バイト区切りテスト](../tests/Program.cs#L1543) |
+| `0x01BE` | `byte_bundanForJinfo` | [ByteBundanForJinfo](../CsFunctions2ker2.cs#L266) | 実装済検証済 | [文字・バイト区切りテスト](../tests/Program.cs#L1543) |
+| `0x01BF` | `sakujyoForJvar` | [SakujyoForJvar](../CsFunctions2ker2.cs#L267) | 実装済検証済 | [文字数削除テスト](../tests/Program.cs#L1589) |
+| `0x01C0` | `sakujyo` | [Sakujyo](../CsFunctions2ker2.cs#L268) | 実装済検証済 | [文字数削除テスト](../tests/Program.cs#L1589) |
+| `0x01C1` | `sakujyoForJinfo` | [SakujyoForJinfo](../CsFunctions2ker2.cs#L269) | 実装済検証済 | [文字数削除テスト](../tests/Program.cs#L1589) |
+| `0x01C2` | `migiSakujyoForJvar` | [MigiSakujyoForJvar](../CsFunctions2ker2.cs#L270) | 実装済検証済 | [文字数削除テスト](../tests/Program.cs#L1589) |
+| `0x01C3` | `migiSakujyo` | [MigiSakujyo](../CsFunctions2ker2.cs#L271) | 実装済検証済 | [文字数削除テスト](../tests/Program.cs#L1589) |
+| `0x01C4` | `migiSakujyoForJinfo` | [MigiSakujyoForJinfo](../CsFunctions2ker2.cs#L272) | 実装済検証済 | [文字数削除テスト](../tests/Program.cs#L1589) |
+| `0x01C5` | `kuhakuWoNozokuForJvar` | [KuhakuWoNozokuForJvar](../CsFunctions2ker2.cs#L273) | 実装済検証済 | [空白除去テスト](../tests/Program.cs#L1636) |
+| `0x01C6` | `kuhakuWoNozoku` | [KuhakuWoNozoku](../CsFunctions2ker2.cs#L274) | 実装済検証済 | [空白除去テスト](../tests/Program.cs#L1636) |
+| `0x01C7` | `kuhakuWoNozokuForJinfo` | [KuhakuWoNozokuForJinfo](../CsFunctions2ker2.cs#L275) | 実装済検証済 | [空白除去テスト](../tests/Program.cs#L1636) |
+| `0x01C8` | `migiKuhakuWoNozokuForJvar` | [MigiKuhakuWoNozokuForJvar](../CsFunctions2ker2.cs#L276) | 実装済検証済 | [空白除去テスト](../tests/Program.cs#L1636) |
+| `0x01C9` | `migiKuhakuWoNozoku` | [MigiKuhakuWoNozoku](../CsFunctions2ker2.cs#L277) | 実装済検証済 | [空白除去テスト](../tests/Program.cs#L1636) |
+| `0x01CA` | `migiKuhakuWoNozokuForJinfo` | [MigiKuhakuWoNozokuForJinfo](../CsFunctions2ker2.cs#L278) | 実装済検証済 | [空白除去テスト](../tests/Program.cs#L1636) |
+| `0x01CB` | `tangoKiridasiForJvar` | [TangoKiridasiForJvar](../CsFunctions2ker2.cs#L279) | 実装済検証済 | [単語切出しテスト](../tests/Program.cs#L1673) |
+| `0x01CC` | `tangoKiridasi` | [TangoKiridasi](../CsFunctions2ker2.cs#L280) | 実装済検証済 | [単語切出しテスト](../tests/Program.cs#L1673) |
+| `0x01CD` | `tangoKiridasiForJinfo` | [TangoKiridasiForJinfo](../CsFunctions2ker2.cs#L281) | 実装済検証済 | [単語切出しテスト](../tests/Program.cs#L1673) |
+| `0x01CE` | `mojisu` | [Mojisu](../CsFunctions2ker2.cs#L282) | 実装済検証済 | [文字数・選択テスト](../tests/Program.cs#L1719) |
+| `0x01CF` | `satanBaito` | [SatanBaito](../CsFunctions2ker2.cs#L283) | 実装済検証済 | [文字数・選択テスト](../tests/Program.cs#L1719) |
+| `0x01D0` | `satanMoji` | [SatanMoji](../CsFunctions2ker2.cs#L284) | 実装済検証済 | [文字数・選択テスト](../tests/Program.cs#L1719) |
+| `0x01D1` | `utanBaito` | [UtanBaito](../CsFunctions2ker2.cs#L285) | 実装済検証済 | [文字数・選択テスト](../tests/Program.cs#L1719) |
 | `0x01D2` | `utanMoji` | [UtanMoji](../CsFunctions2ker2.cs#L42) | 実装済検証済 | [空列・末尾文字](../tests/Program.cs#L51) |
-| `0x01D3` | `siteiItiNoMoji` | — | 未実装 | 未登録 |
-| `0x01D4` | `migiSiteiItiNoMoji` | — | 未実装 | 未登録 |
+| `0x01D3` | `siteiItiNoMoji` | [SiteiItiNoMoji](../CsFunctions2ker2.cs#L286) | 実装済検証済 | [文字数・選択テスト](../tests/Program.cs#L1719) |
+| `0x01D4` | `migiSiteiItiNoMoji` | [MigiSiteiItiNoMoji](../CsFunctions2ker2.cs#L287) | 実装済検証済 | [文字数・選択テスト](../tests/Program.cs#L1719) |
 | `0x01D5` | `toridasi` | [Toridasi](../CsFunctions2ker2.cs#L83) | 実装済検証済 | [実体参照・文字境界](../tests/Program.cs#L38) |
-| `0x01D6` | `migiToridasi` | — | 未実装 | 未登録 |
+| `0x01D6` | `migiToridasi` | [MigiToridasi](../CsFunctions2ker2.cs#L705) | 実装済検証済 | [文字数・選択テスト](../tests/Program.cs#L1719) |
 | `0x01D7` | `itiBaitoKensaku` | [ItiBaitoKensaku](../CsFunctions2ker2.cs#L114) | 実装済検証済 | [データ領域検索](../tests/Program.cs#L54) |
 | `0x01D8` | `gyakuItiBaitoKensaku` | [GyakuItiBaitoKensaku](../CsFunctions2ker2.cs#L142) | 実装済検証済 | [データ領域検索](../tests/Program.cs#L54) |
-| `0x01D9` | `itiMojiKensaku` | — | 未実装 | 未登録 |
-| `0x01DA` | `kensaku` | — | 未実装 | 未登録 |
-| `0x01DB` | `zan_kensakumojiretu` | — | 未実装 | 未登録 |
-| `0x01DC` | `baito_retu_kensaku` | — | 未実装 | 未登録 |
+| `0x01D9` | `itiMojiKensaku` | [ItiMojiKensaku](../CsFunctions2ker2.cs#L291) | 実装済検証済 | [検索・比較テスト](../tests/Program.cs#L1796) |
+| `0x01DA` | `kensaku` | [Kensaku](../CsFunctions2ker2.cs#L292) | 実装済検証済 | [検索・比較テスト](../tests/Program.cs#L1796) |
+| `0x01DB` | `zan_kensakumojiretu` | [ZanKensakumojiretu](../CsFunctions2ker2.cs#L293) | 実装済検証済 | [検索・比較テスト](../tests/Program.cs#L1796) |
+| `0x01DC` | `baito_retu_kensaku` | [BaitoRetuKensaku](../CsFunctions2ker2.cs#L298) | 実装済検証済 | [検索・比較テスト](../tests/Program.cs#L1796) |
 | `0x01DD` | `hitosiiMojiretu` | [HitosiiMojiretu](../CsFunctions2ker2.cs#L101) | 実装済検証済 | [領域間文字列比較](../tests/Program.cs#L39) |
-| `0x01DE` | `mojiretuHikaku_0` | — | 未実装 | 未登録 |
-| `0x01DF` | `mojiretuHikaku` | — | 未実装 | 未登録 |
-| `0x01E0` | `filenameHikaku` | — | 未実装 | 未登録 |
-| `0x01E1` | `isKanjiDaiitiBaito_SJIS` | — | 未実装 | 未登録 |
-| `0x01E2` | `isKanjiDaiitiBaito_EUC` | — | 未実装 | 未登録 |
-| `0x01E3` | `isKanjiDaiitiBaito` | — | 未実装 | 未登録 |
-| `0x01E4` | `isKanjiCode` | — | 未実装 | 未登録 |
-| `0x01E5` | `isHankakuKana` | — | 未実装 | 未登録 |
-| `0x01E6` | `mojiHaba` | — | 未実装 | 未登録 |
-| `0x01E7` | `hyojiHaba` | — | 未実装 | 未登録 |
-| `0x01E8` | `isKuhaku` | — | 未実装 | 未登録 |
+| `0x01DE` | `mojiretuHikaku_0` | [MojiretuHikaku0](../CsFunctions2ker2.cs#L299) | 実装済検証済 | [検索・比較テスト](../tests/Program.cs#L1796) |
+| `0x01DF` | `mojiretuHikaku` | [MojiretuHikaku](../CsFunctions2ker2.cs#L300) | 実装済検証済 | [検索・比較テスト](../tests/Program.cs#L1796) |
+| `0x01E0` | `filenameHikaku` | [FilenameHikaku](../CsFunctions2ker2.cs#L301) | 実装済検証済 | [検索・比較テスト](../tests/Program.cs#L1796) |
+| `0x01E1` | `isKanjiDaiitiBaito_SJIS` | [IsKanjiDaiitiBaitoSjis](../CsFunctions2ker2.cs#L302) | 実装済検証済 | [文字種判定テスト](../tests/Program.cs#L1875) |
+| `0x01E2` | `isKanjiDaiitiBaito_EUC` | [IsKanjiDaiitiBaitoEuc](../CsFunctions2ker2.cs#L304) | 実装済検証済 | [文字種判定テスト](../tests/Program.cs#L1875) |
+| `0x01E3` | `isKanjiDaiitiBaito` | [IsKanjiDaiitiBaito](../CsFunctions2ker2.cs#L306) | 実装済検証済 | [文字種判定テスト](../tests/Program.cs#L1875) |
+| `0x01E4` | `isKanjiCode` | [IsKanjiCode](../CsFunctions2ker2.cs#L308) | 実装済検証済 | [文字種判定テスト](../tests/Program.cs#L1875) |
+| `0x01E5` | `isHankakuKana` | [IsHankakuKana](../CsFunctions2ker2.cs#L309) | 実装済検証済 | [文字種判定テスト](../tests/Program.cs#L1875) |
+| `0x01E6` | `mojiHaba` | [MojiHaba](../CsFunctions2ker2.cs#L311) | 実装済検証済 | [文字種判定テスト](../tests/Program.cs#L1875) |
+| `0x01E7` | `hyojiHaba` | [HyojiHaba](../CsFunctions2ker2.cs#L312) | 実装済検証済 | [文字種判定テスト](../tests/Program.cs#L1875) |
+| `0x01E8` | `isKuhaku` | [IsKuhaku](../CsFunctions2ker2.cs#L313) | 実装済検証済 | [文字種判定テスト](../tests/Program.cs#L1875) |
 | `0x01E9` | `konoBaitoSu` | [KonoBaitoSu](../CsFunctions2ker2.cs#L76) | 実装済検証済 | [余白・切出し・文字境界](../tests/Program.cs#L49) |
-| `0x01EA` | `baitoSuWoEru` | — | 未実装 | 未登録 |
-| `0x01EB` | `baitoSuWoEru` | — | 未実装 | 未登録 |
+| `0x01EA` | `baitoSuWoEru` | [BaitoSuWoEru](../CsFunctions2ker2.cs#L17) | 実装済検証済 | [サイズ操作テスト](../tests/Program.cs#L1911) |
+| `0x01EB` | `baitoSuWoEru` | [BaitoSuWoEru](../CsFunctions2ker2.cs#L17) | 実装済検証済 | [サイズ操作テスト](../tests/Program.cs#L1911) |
 | `0x01EC` | `sizeHenko` | [SizeHenko](../CsFunctions2ker2.cs#L7) | 実装済未検証 | 命令単位の期待値照合なし |
-| `0x01ED` | `sizeGensyo` | — | 未実装 | 未登録 |
-| `0x01EE` | `c_sjis_to_jis` | — | 未実装 | 未登録 |
-| `0x01EF` | `c_jis_to_sjis` | — | 未実装 | 未登録 |
-| `0x01F0` | `itiMojiOhmojiHenkan` | — | 未実装 | 未登録 |
-| `0x01F1` | `itiMojiSutiHenkan` | — | 未実装 | 未登録 |
-| `0x01F2` | `itiMojiSutiHenkanHex` | — | 未実装 | 未登録 |
-| `0x01F3` | `itiMojiZenkakuHenkan` | — | 未実装 | 未登録 |
-| `0x01F4` | `isKuhakuMatahaSeparator` | — | 未実装 | 未登録 |
-| `0x01F5` | `is_S_Kuretu` | — | 未実装 | 未登録 |
-| `0x01F6` | `is_S_NotKuretu` | — | 未実装 | 未登録 |
-| `0x01F7` | `S_itiBaitoSakujyo` | — | 未実装 | 未登録 |
-| `0x01F8` | `S_itiBaitoMigiSakujyo` | — | 未実装 | 未登録 |
-| `0x01F9` | `S_itiMojiSakujyo` | — | 未実装 | 未登録 |
-| `0x01FA` | `S_itiMojiMigiSakujyo` | — | 未実装 | 未登録 |
+| `0x01ED` | `sizeGensyo` | [SizeGensyo](../CsFunctions2ker2.cs#L24) | 実装済検証済 | [サイズ操作テスト](../tests/Program.cs#L1911) |
+| `0x01EE` | `c_sjis_to_jis` | [CSjisToJis](../CsFunctions2ker2.cs#L365) | 実装済検証済 | [文字コード変換テスト](../tests/Program.cs#L1948) |
+| `0x01EF` | `c_jis_to_sjis` | [CJisToSjis](../CsFunctions2ker2.cs#L366) | 実装済検証済 | [文字コード変換テスト](../tests/Program.cs#L1948) |
+| `0x01F0` | `itiMojiOhmojiHenkan` | [ItiMojiOhmojiHenkan](../CsFunctions2ker2.cs#L367) | 実装済検証済 | [文字コード変換テスト](../tests/Program.cs#L1948) |
+| `0x01F1` | `itiMojiSutiHenkan` | [ItiMojiSutiHenkan](../CsFunctions2ker2.cs#L368) | 実装済検証済 | [文字コード変換テスト](../tests/Program.cs#L1948) |
+| `0x01F2` | `itiMojiSutiHenkanHex` | [ItiMojiSutiHenkanHex](../CsFunctions2ker2.cs#L369) | 実装済検証済 | [文字コード変換テスト](../tests/Program.cs#L1948) |
+| `0x01F3` | `itiMojiZenkakuHenkan` | [ItiMojiZenkakuHenkan](../CsFunctions2ker2.cs#L370) | 実装済検証済 | [文字コード変換テスト](../tests/Program.cs#L1948) |
+| `0x01F4` | `isKuhakuMatahaSeparator` | [IsKuhakuMatahaSeparator](../CsFunctions2ker2.cs#L371) | 実装済検証済 | [文字コード変換テスト](../tests/Program.cs#L1948) |
+| `0x01F5` | `is_S_Kuretu` | [IsSvarEmpty](../CsFunctions2ker2.cs#L57) | 実装済検証済 | [Svar状態・削除テスト](../tests/Program.cs#L1999) |
+| `0x01F6` | `is_S_NotKuretu` | [IsSvarNotEmpty](../CsFunctions2ker2.cs#L58) | 実装済検証済 | [Svar状態・削除テスト](../tests/Program.cs#L1999) |
+| `0x01F7` | `S_itiBaitoSakujyo` | [SvarDeleteFirstByte](../CsFunctions2ker2.cs#L59) | 実装済検証済 | [Svar状態・削除テスト](../tests/Program.cs#L1999) |
+| `0x01F8` | `S_itiBaitoMigiSakujyo` | [SvarDeleteLastByte](../CsFunctions2ker2.cs#L60) | 実装済検証済 | [Svar状態・削除テスト](../tests/Program.cs#L1999) |
+| `0x01F9` | `S_itiMojiSakujyo` | [SvarDeleteFirstCharacter](../CsFunctions2ker2.cs#L61) | 実装済検証済 | [Svar状態・削除テスト](../tests/Program.cs#L1999) |
+| `0x01FA` | `S_itiMojiMigiSakujyo` | [SvarDeleteLastCharacter](../CsFunctions2ker2.cs#L62) | 実装済検証済 | [Svar状態・削除テスト](../tests/Program.cs#L1999) |
 | `0x01FB` | `S_itiBaitoKiridasi` | — | 未実装 | 未登録 |
 | `0x01FC` | `S_itiBaitoMigiKiridasi` | — | 未実装 | 未登録 |
 | `0x01FD` | `S_itiMojiKiridasi` | — | 未実装 | 未登録 |

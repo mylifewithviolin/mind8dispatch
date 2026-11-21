@@ -29,6 +29,7 @@ var tests = new (string Name, Action Run)[]
     ("native stack margin preserves memory and rejects reads beyond its boundary", TestNativeStackMargin),
     ("generic exit preserves 32-bit return addresses and releases its frame", TestGenericExit),
     ("runtime arguments preserve argc and null-terminated Shift-JIS values", TestRuntimeArguments),
+    ("CLI instruction tracing requires -D and excludes it from program arguments", TestCliTraceOption),
     ("output device distinguishes handles and preserves CRLF", TestOutputHandles),
     ("unimplemented opcode identifies its location", TestUnsupportedOpcode),
     ("integer output preserves signed 64-bit values and LF", TestIntegerOutput),
@@ -49,6 +50,26 @@ var tests = new (string Name, Action Run)[]
     ("console integer conversions preserve signed values and stack order", TestConsoleIntegerConversions),
     ("string margins and character extraction preserve Shift-JIS boundaries", TestStringMargins),
     ("string append respects remaining capacity and overlap", TestStringAppend),
+    ("string trimming, Xvar storage, and clear opcodes match C behavior", TestStringBoundaryAndXvarOpcodes),
+    ("string margin opcode variants match direct and Jinfo contracts", TestStringMarginOpcodeVariants),
+    ("string alignment and metadata setters match direct and Jinfo contracts", TestStringAlignmentAndMetadataOpcodes),
+    ("uppercase conversion preserves ASCII and Shift-JIS character boundaries", TestUppercaseStringOpcodes),
+    ("left and right byte or character deletion match Jvar, Svar, and Jinfo layouts", TestStringDeleteOpcodes),
+    ("left and right byte or character extraction match Jvar, Svar, and Jinfo layouts", TestStringCutOpcodes),
+    ("byte-range extraction and deletion clamp requests across Jvar, Svar, and Jinfo", TestStringByteRangeOpcodes),
+    ("character-count extraction preserves Shift-JIS boundaries across Jvar, Svar, and Jinfo", TestStringCharacterRangeOpcodes),
+    ("character and byte split positions return prefixes and remove the delimiter", TestStringSplitOpcodes),
+    ("left and right character-range deletion preserves Shift-JIS boundaries", TestStringCharacterRangeDeleteOpcodes),
+    ("left and right whitespace trimming matches ASCII and Shift-JIS C rules", TestStringWhitespaceOpcodes),
+    ("word extraction skips leading whitespace and consumes one word", TestStringWordExtractionOpcodes),
+    ("character counting and selection honor Shift-JIS boundaries", TestStringCharacterSelectionOpcodes),
+    ("character and byte searches and string comparisons match C rules", TestStringSearchAndComparisonOpcodes),
+    ("character classification, width, and whitespace match C rules", TestCharacterClassificationOpcodes),
+    ("string byte count aliases and size reduction preserve stack layout", TestStringSizeOpcodes),
+    ("single-character conversions preserve code and status stack layouts", TestSingleCharacterConversionOpcodes),
+    ("Svar empty checks and byte or character deletion match direct string layouts", TestSvarStateAndDeletionOpcodes),
+    ("Svar first and last byte or character extraction preserve string-info layout", TestSvarExtractionOpcodes),
+    ("Svar byte-range extraction and deletion clamp requests and preserve stack layout", TestSvarByteRangeOpcodes),
     ("last character handles empty and Shift-JIS strings", TestLastCharacter),
     ("swap preserves both words of each value", TestSwap),
     ("memory clear addresses the data region", TestClearDataMemory),
@@ -58,6 +79,8 @@ var tests = new (string Name, Action Run)[]
     ("indirect byte word and double memory access uses tagged addresses", TestIndirectMemoryAccess),
     ("floating variable and test stack opcodes preserve 64-bit values", TestFloatingVariableOpcodes),
     ("floating constants, stack addresses, and integer fraction parts match their layouts", TestFloatingConstantsAndStackInfo),
+    ("floating arithmetic, comparisons, and math functions match C opcode behavior", TestFloatingMathOpcodes),
+    ("integer arithmetic, bit operations, packing, and conversions match C opcode behavior", TestIntegerUtilityOpcodes),
     ("console numeric display and wordStore11 match C formatting", TestConsoleNumericDisplay),
     ("floating parsing and integer fraction packing match stack and pointer layouts", TestAtofAndFractionPacking),
     ("memory dump and return-stack monitor output match C formats", TestConsoleMemoryDisplays),
@@ -279,6 +302,53 @@ static void TestRuntimeArguments()
     Assert(process.ExitCode == 4 && outputTask.GetAwaiter().GetResult() == "",
         $"CLI did not forward program arguments: {errorTask.GetAwaiter().GetResult()}");
     errorTask.GetAwaiter().GetResult();
+}
+
+static void TestCliTraceOption()
+{
+    using var fixture = new McoFixture(CreateMco(executionOpcodes: [0x0264, 0x0014]));
+    foreach (string placement in new[] { "none", "before", "after" })
+    {
+        var startInfo = new ProcessStartInfo("dotnet")
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false
+        };
+        startInfo.ArgumentList.Add(typeof(Dispatcher).Assembly.Location);
+        if (placement == "before") startInfo.ArgumentList.Add("-D");
+        startInfo.ArgumentList.Add(fixture.Path);
+        if (placement == "after") startInfo.ArgumentList.Add("-D");
+        startInfo.ArgumentList.Add("first argument");
+        startInfo.ArgumentList.Add("\u3042");
+        using Process process = Process.Start(startInfo) ?? throw new InvalidOperationException("trace CLI failed to start");
+        Task<string> outputTask = process.StandardOutput.ReadToEndAsync();
+        Task<string> errorTask = process.StandardError.ReadToEndAsync();
+        if (!process.WaitForExit(30000))
+        {
+            process.Kill(entireProcessTree: true);
+            process.WaitForExit();
+            throw new InvalidOperationException("trace CLI exceeded 30 seconds");
+        }
+        string output = outputTask.GetAwaiter().GetResult();
+        string error = errorTask.GetAwaiter().GetResult();
+        Assert(process.ExitCode == 4, $"{placement}: -D changed argc or argument forwarding: {error}");
+        Assert(output == "", $"{placement}: trace leaked into stdout: {output}");
+        if (placement == "none")
+        {
+            Assert(error == "", $"CLI traced instructions without -D: {error}");
+        }
+        else
+        {
+            string[] lines = error.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+            Assert(lines.Length == 2
+                && System.Text.RegularExpressions.Regex.IsMatch(lines[0],
+                    @"^\s*1\s+0264\s+612\s+114(?:\s+\d+){6}\s*$")
+                && System.Text.RegularExpressions.Regex.IsMatch(lines[1],
+                    @"^\s*2\s+0014\s+20\s+116\s+\d+\s+0\s+4(?:\s+\d+){3}\s*$"),
+                $"{placement}: instruction trace omitted opcode, offset, or stack values: {error}");
+        }
+    }
 }
 
 static void TestOutputHandles()
@@ -943,6 +1013,1178 @@ static void TestStringAppend()
         "overlapping append changed the source or stored length");
 }
 
+static void TestStringBoundaryAndXvarOpcodes()
+{
+    DispatchFixture fixture = CreateDispatcher();
+    AccessPointer data = AttachDataPointer(fixture, 128);
+    WriteDataBytes(data, 64, (byte)'A', 0x82, 0xA0, (byte)'B');
+    SetJinfo(data, 0x80000040, 4);
+    PushIntegerQuad(fixture.DataStack, 3);
+    fixture.Functions[0x0162]();
+    Assert(ReadDataWord(data, 0) == 3 && ReadDataWord(data, 4) == 0x80000041
+        && fixture.DataStack.PopUl() == 0 && fixture.DataStack.PopUl() == 1,
+        "head limit did not delete complete characters or update the string reference");
+
+    SetJinfo(data, 0x80000040, 4);
+    PushIntegerQuad(fixture.DataStack, 3);
+    fixture.Functions[0x0163]();
+    Assert(ReadDataWord(data, 0) == 3 && ReadDataWord(data, 4) == 0x80000040
+        && fixture.DataStack.PopUl() == 0 && fixture.DataStack.PopUl() == 1,
+        "tail limit did not delete complete characters or preserve the original address");
+
+    data.ResetDataIndex(16);
+    fixture.McodePointer.ResetMcodeIndex(0x70);
+    WriteMcodeUInts(fixture, 0x70, 4);
+    fixture.DataStack.PushUl(0x80000040);
+    fixture.DataStack.PushUl(3);
+    fixture.Functions[0x016B]();
+    Assert(data.GetBytes(16, 4).SequenceEqual(new byte[] { (byte)'A', 0x82, 0xA0, 0x20 }),
+        "Xvar pop did not preserve a complete character and space-pad the fixed-width target");
+
+    WriteMcodeUInts(fixture, 0x70, 24, 3);
+    fixture.McodePointer.ResetMcodeIndex(0x70);
+    fixture.DataStack.PushUl(0x80000040);
+    fixture.DataStack.PushUl(4);
+    fixture.Functions[0x016C]();
+    Assert(data.GetBytes(24, 3).SequenceEqual(new byte[] { (byte)'A', 0x82, 0xA0 }),
+        "Xvar data write split a multibyte character when truncating");
+
+    fixture.ReturnStack.MoveStackPointer(-2);
+    fixture.ReturnStack.WriteLocal(0, 0xCCCCCCCC, 4);
+    WriteMcodeUShorts(fixture, 0x70, 0, 4);
+    fixture.McodePointer.ResetMcodeIndex(0x70);
+    fixture.DataStack.PushUl(0x80000040);
+    fixture.DataStack.PushUl(3);
+    fixture.Functions[0x016D]();
+    Assert(fixture.ReturnStack.ReadLocal(0, 4) == 0x20A08241,
+        "local Xvar write did not place the fixed-width bytes in the return frame");
+
+    WriteDataBytes(data, 80, 0xCC, 0xCC, 0xCC, 0xCC);
+    fixture.DataStack.PushUl(0x80000050);
+    fixture.DataStack.PushUl(4);
+    fixture.Functions[0x016F]();
+    Assert(data.GetBytes(80, 4).SequenceEqual(new byte[] { 0x20, 0x20, 0x20, 0x20 }),
+        "simple string clear did not fill its target with spaces");
+
+    uint stackPointer = fixture.DataStack.GetCurrentStackPointer();
+    fixture.Functions[0x0172]();
+    Assert(fixture.DataStack.GetCurrentStackPointer() == stackPointer,
+        "reserved string-info opcode changed the data stack");
+}
+
+static void TestStringMarginOpcodeVariants()
+{
+    DispatchFixture fixture = CreateDispatcher();
+    AccessPointer data = AttachDataPointer(fixture, 160);
+    WriteStringRecord(data, 16, 2, 4, (byte)'X', (byte)'Y');
+    data.ResetDataIndex(16);
+    fixture.McodePointer.ResetMcodeIndex(0x70);
+    WriteMcodeUInts(fixture, 0x70, 20);
+    fixture.Functions[0x0175]();
+    Assert(fixture.DataStack.PopUl() == 0 && fixture.DataStack.PopUl() == 4,
+        "direct left-margin query returned the wrong reserve");
+    SetJinfo(data, 0x80000010, 20);
+    fixture.Functions[0x0174]();
+    Assert(fixture.DataStack.PopUl() == 0 && fixture.DataStack.PopUl() == 14,
+        "Jinfo right-margin query returned the wrong reserve");
+    fixture.Functions[0x0176]();
+    Assert(fixture.DataStack.PopUl() == 0 && fixture.DataStack.PopUl() == 4,
+        "Jinfo left-margin query returned the wrong reserve");
+
+    WriteStringRecord(data, 16, 2, 1, (byte)'X', (byte)'Y');
+    data.ResetDataIndex(16);
+    fixture.McodePointer.ResetMcodeIndex(0x70);
+    WriteMcodeUInts(fixture, 0x70, 8);
+    PushIntegerQuad(fixture.DataStack, 0x82A0);
+    fixture.Functions[0x0177]();
+    Assert(data.GetUl() == 4 && data.GetBytes(25, 4).SequenceEqual(new byte[] { (byte)'X', (byte)'Y', 0x82, 0xA0 }),
+        "direct one-character right append did not preserve the character bytes");
+
+    WriteStringRecord(data, 16, 2, 1, (byte)'X', (byte)'Y');
+    SetJinfo(data, 0x80000010, 8);
+    PushIntegerQuad(fixture.DataStack, 0x82A0);
+    fixture.Functions[0x0178]();
+    data.ResetDataIndex(16);
+    Assert(data.GetUl() == 4 && data.GetBytes(25, 4).SequenceEqual(new byte[] { (byte)'X', (byte)'Y', 0x82, 0xA0 }),
+        "Jinfo one-character right append did not preserve the character bytes");
+
+    WriteStringRecord(data, 16, 2, 2, (byte)'X', (byte)'Y');
+    data.ResetDataIndex(16);
+    fixture.McodePointer.ResetMcodeIndex(0x70);
+    WriteMcodeUInts(fixture, 0x70, 8);
+    PushIntegerQuad(fixture.DataStack, 'A');
+    fixture.Functions[0x0179]();
+    Assert(ReadDataWord(data, 16) == 3 && ReadDataWord(data, 20) == 1
+        && data.GetBytes(25, 3).SequenceEqual(new byte[] { (byte)'A', (byte)'X', (byte)'Y' }),
+        "direct one-character left append did not consume the left margin");
+
+    WriteStringRecord(data, 16, 2, 2, (byte)'X', (byte)'Y');
+    SetJinfo(data, 0x80000010, 8);
+    fixture.DataStack.PushUl(0x80000060);
+    fixture.DataStack.PushUl(3);
+    WriteDataBytes(data, 96, (byte)'A', 0x82, 0xA0);
+    data.ResetDataIndex(0);
+    fixture.Functions[0x017C]();
+    data.ResetDataIndex(16);
+    Assert(data.GetUl() == 5 && data.GetBytes(26, 5).SequenceEqual(
+        new byte[] { (byte)'X', (byte)'Y', (byte)'A', 0x82, 0xA0 }),
+        "Jinfo string append did not preserve the complete source string");
+
+    WriteStringRecord(data, 16, 2, 2, (byte)'X', (byte)'Y');
+    WriteDataBytes(data, 96, (byte)'A', 0x82, 0xA0);
+    data.ResetDataIndex(16);
+    fixture.McodePointer.ResetMcodeIndex(0x70);
+    WriteMcodeUInts(fixture, 0x70, 12);
+    fixture.DataStack.PushUl(0x80000060);
+    fixture.DataStack.PushUl(3);
+    fixture.Functions[0x017D]();
+    Assert(ReadDataWord(data, 16) == 4 && ReadDataWord(data, 20) == 0
+        && data.GetBytes(24, 4).SequenceEqual(new byte[] { 0x82, 0xA0, (byte)'X', (byte)'Y' }),
+        "direct left string append did not keep the fitting suffix on a character boundary");
+
+    WriteStringRecord(data, 16, 2, 2, (byte)'X', (byte)'Y');
+    SetJinfo(data, 0x80000010, 12);
+    fixture.DataStack.PushUl(0x80000060);
+    fixture.DataStack.PushUl(3);
+    fixture.Functions[0x017E]();
+    data.ResetDataIndex(16);
+    Assert(ReadDataWord(data, 16) == 4 && ReadDataWord(data, 20) == 0
+        && data.GetBytes(24, 4).SequenceEqual(new byte[] { 0x82, 0xA0, (byte)'X', (byte)'Y' }),
+        "Jinfo left string append did not keep the fitting suffix on a character boundary");
+
+    WriteStringRecord(data, 16, 2, 1, (byte)'X', (byte)'Y');
+    data.ResetDataIndex(16);
+    fixture.McodePointer.ResetMcodeIndex(0x70);
+    WriteMcodeUInts(fixture, 0x70, 6);
+    fixture.Functions[0x017F]();
+    Assert(ReadDataWord(data, 16) == 6 && ReadDataWord(data, 20) == 0
+        && data.GetBytes(24, 6).SequenceEqual(new byte[] { 0x20, (byte)'X', (byte)'Y', 0x20, 0x20, 0x20 }),
+        "direct fill-space did not fill both margins or update the string length");
+
+    WriteStringRecord(data, 16, 2, 1, (byte)'X', (byte)'Y');
+    SetJinfo(data, 0x80000010, 6);
+    fixture.Functions[0x0180]();
+    data.ResetDataIndex(16);
+    Assert(ReadDataWord(data, 16) == 6 && ReadDataWord(data, 20) == 0
+        && data.GetBytes(24, 6).SequenceEqual(new byte[] { 0x20, (byte)'X', (byte)'Y', 0x20, 0x20, 0x20 }),
+        "Jinfo fill-space did not fill both margins or update the string length");
+
+    WriteStringRecord(data, 16, 2, 1, (byte)'X', (byte)'Y');
+    data.ResetDataIndex(16);
+    fixture.McodePointer.ResetMcodeIndex(0x70);
+    WriteMcodeUInts(fixture, 0x70, 7);
+    fixture.Functions[0x0181]();
+    Assert(ReadDataWord(data, 20) == 5 && data.GetBytes(29, 2).SequenceEqual(new byte[] { (byte)'X', (byte)'Y' }),
+        "direct right alignment did not move the string to the right margin");
+}
+
+static void WriteDataBytes(AccessPointer data, uint offset, params byte[] bytes)
+{
+    for (uint index = 0; index < bytes.Length; index++)
+    {
+        data.ResetDataIndex(offset + index);
+        data.SetUb(bytes[index]);
+    }
+}
+
+static uint ReadDataWord(AccessPointer data, uint offset) =>
+    BinaryPrimitives.ReadUInt32LittleEndian(data.GetBytes(offset, 4));
+
+static void SetJinfo(AccessPointer data, uint address, uint capacity)
+{
+    data.ResetDataIndex(0);
+    data.SetUl4Ms(capacity, address);
+}
+
+static void WriteStringRecord(AccessPointer data, uint offset, uint length, uint margin, params byte[] content)
+{
+    data.ResetDataIndex(offset);
+    data.SetUl4Ms(length, margin);
+    WriteDataBytes(data, offset + 8 + margin, content);
+}
+
+static void TestStringAlignmentAndMetadataOpcodes()
+{
+    DispatchFixture fixture = CreateDispatcher();
+    AccessPointer data = AttachDataPointer(fixture, 160);
+    WriteStringRecord(data, 16, 2, 1, (byte)'X', (byte)'Y');
+    data.ResetDataIndex(16);
+    fixture.McodePointer.ResetMcodeIndex(0x70);
+    WriteMcodeUInts(fixture, 0x70, 8);
+    PushIntegerQuad(fixture.DataStack, 3);
+    fixture.Functions[0x0183]();
+    Assert(ReadDataWord(data, 20) == 4 && data.GetBytes(28, 2).SequenceEqual(new byte[] { (byte)'X', (byte)'Y' }),
+        "partial right alignment moved by an incorrect number of bytes");
+
+    WriteStringRecord(data, 16, 2, 1, (byte)'X', (byte)'Y');
+    SetJinfo(data, 0x80000010, 8);
+    PushIntegerQuad(fixture.DataStack, 9);
+    fixture.Functions[0x0184]();
+    Assert(ReadDataWord(data, 20) == 6 && data.GetBytes(30, 2).SequenceEqual(new byte[] { (byte)'X', (byte)'Y' }),
+        "Jinfo partial right alignment did not clamp the shift to available space");
+
+    WriteStringRecord(data, 16, 2, 1, (byte)'X', (byte)'Y');
+    data.ResetDataIndex(16);
+    fixture.McodePointer.ResetMcodeIndex(0x70);
+    WriteMcodeUInts(fixture, 0x70, 8);
+    PushIntegerQuad(fixture.DataStack, 0);
+    fixture.Functions[0x0183]();
+    Assert(ReadDataWord(data, 20) == 1 && data.GetBytes(25, 2).SequenceEqual(new byte[] { (byte)'X', (byte)'Y' }),
+        "zero partial-right shift changed the string");
+
+    WriteStringRecord(data, 16, 2, 4, (byte)'X', (byte)'Y');
+    data.ResetDataIndex(16);
+    fixture.McodePointer.ResetMcodeIndex(0x70);
+    WriteMcodeUInts(fixture, 0x70, 8);
+    fixture.Functions[0x0185]();
+    Assert(ReadDataWord(data, 20) == 0 && data.GetBytes(24, 2).SequenceEqual(new byte[] { (byte)'X', (byte)'Y' }),
+        "full direct left alignment did not remove the complete left margin");
+
+    WriteStringRecord(data, 16, 2, 3, (byte)'X', (byte)'Y');
+    SetJinfo(data, 0x80000010, 8);
+    fixture.Functions[0x0186]();
+    Assert(ReadDataWord(data, 20) == 0 && data.GetBytes(24, 2).SequenceEqual(new byte[] { (byte)'X', (byte)'Y' }),
+        "full Jinfo left alignment did not remove the complete left margin");
+
+    WriteStringRecord(data, 16, 2, 4, (byte)'X', (byte)'Y');
+    data.ResetDataIndex(16);
+    fixture.McodePointer.ResetMcodeIndex(0x70);
+    WriteMcodeUInts(fixture, 0x70, 8);
+    PushIntegerQuad(fixture.DataStack, 1);
+    fixture.Functions[0x0187]();
+    Assert(ReadDataWord(data, 20) == 3 && data.GetBytes(27, 2).SequenceEqual(new byte[] { (byte)'X', (byte)'Y' }),
+        "partial direct left alignment moved by an incorrect number of bytes");
+
+    WriteStringRecord(data, 16, 2, 4, (byte)'X', (byte)'Y');
+    SetJinfo(data, 0x80000010, 8);
+    PushIntegerQuad(fixture.DataStack, 2);
+    fixture.Functions[0x0188]();
+    Assert(ReadDataWord(data, 20) == 2 && data.GetBytes(26, 2).SequenceEqual(new byte[] { (byte)'X', (byte)'Y' }),
+        "partial Jinfo left alignment moved by an incorrect number of bytes");
+
+    WriteStringRecord(data, 16, 2, 1, (byte)'X', (byte)'Y');
+    data.ResetDataIndex(16);
+    fixture.McodePointer.ResetMcodeIndex(0x70);
+    WriteMcodeUInts(fixture, 0x70, 8);
+    PushIntegerQuad(fixture.DataStack, 7);
+    fixture.Functions[0x0189]();
+    Assert(ReadDataWord(data, 16) == 7 && ReadDataWord(data, 20) == 1,
+        "direct count setter wrote the wrong header word");
+
+    WriteStringRecord(data, 16, 2, 1, (byte)'X', (byte)'Y');
+    SetJinfo(data, 0x80000010, 8);
+    PushIntegerQuad(fixture.DataStack, 9);
+    fixture.Functions[0x018A]();
+    Assert(ReadDataWord(data, 16) == 9 && ReadDataWord(data, 20) == 1,
+        "Jinfo count setter wrote the wrong header word");
+
+    WriteStringRecord(data, 16, 2, 1, (byte)'X', (byte)'Y');
+    data.ResetDataIndex(16);
+    fixture.McodePointer.ResetMcodeIndex(0x70);
+    WriteMcodeUInts(fixture, 0x70, 8);
+    PushIntegerQuad(fixture.DataStack, 11);
+    fixture.Functions[0x018B]();
+    Assert(ReadDataWord(data, 16) == 2 && ReadDataWord(data, 20) == 11,
+        "direct offset setter wrote the wrong header word");
+
+    WriteStringRecord(data, 16, 2, 1, (byte)'X', (byte)'Y');
+    SetJinfo(data, 0x80000010, 8);
+    PushIntegerQuad(fixture.DataStack, 13);
+    fixture.Functions[0x018C]();
+    Assert(ReadDataWord(data, 16) == 2 && ReadDataWord(data, 20) == 13,
+        "Jinfo offset setter wrote the wrong header word");
+}
+
+static void TestUppercaseStringOpcodes()
+{
+    DispatchFixture fixture = CreateDispatcher();
+    AccessPointer data = AttachDataPointer(fixture, 128);
+    byte[] original = [
+        (byte)'a', (byte)'Z', 0x82, 0x81, 0x82, 0x9A, 0x82, 0xA0, 0x83, 0x40
+    ];
+    byte[] expected = [
+        (byte)'A', (byte)'Z', 0x82, 0x60, 0x82, 0x79, 0x82, 0xA0, 0x83, 0x40
+    ];
+
+    WriteStringRecord(data, 16, (uint)original.Length, 2, original);
+    data.ResetDataIndex(16);
+    fixture.McodePointer.ResetMcodeIndex(0x70);
+    WriteMcodeUInts(fixture, 0x70, 32);
+    fixture.Functions[0x018D]();
+    Assert(ReadDataWord(data, 16) == original.Length && ReadDataWord(data, 20) == 2
+        && data.GetBytes(26, (uint)expected.Length).SequenceEqual(expected),
+        "direct uppercase conversion changed an unsupported character or the string header");
+
+    WriteStringRecord(data, 16, (uint)original.Length, 2, original);
+    SetJinfo(data, 0x80000010, 32);
+    fixture.Functions[0x018E]();
+    Assert(ReadDataWord(data, 16) == original.Length && ReadDataWord(data, 20) == 2
+        && data.GetBytes(26, (uint)expected.Length).SequenceEqual(expected),
+        "Jinfo uppercase conversion changed an unsupported character or the string header");
+
+    WriteStringRecord(data, 16, 1, 0, 0x82);
+    data.ResetDataIndex(16);
+    fixture.McodePointer.ResetMcodeIndex(0x70);
+    WriteMcodeUInts(fixture, 0x70, 4);
+    fixture.Functions[0x018D]();
+    Assert(data.GetBytes(24, 1).SequenceEqual(new byte[] { 0x82 }),
+        "uppercase conversion read beyond a truncated multibyte lead byte");
+}
+
+static void TestStringDeleteOpcodes()
+{
+    DispatchFixture fixture = CreateDispatcher();
+    AccessPointer data = AttachDataPointer(fixture, 128);
+    byte[] leftText = [0x82, 0xA0, (byte)'B'];
+
+    WriteStringRecord(data, 16, 3, 2, leftText);
+    data.ResetDataIndex(16);
+    fixture.Functions[0x018F]();
+    Assert(ReadDataWord(data, 16) == 2 && ReadDataWord(data, 20) == 3,
+        "Jvar leading-byte deletion did not advance the left margin");
+
+    WriteDataBytes(data, 64, leftText);
+    SetStringReference(data, 0x80000040, 3);
+    fixture.McodePointer.ResetMcodeIndex(0x70);
+    fixture.Functions[0x0190]();
+    Assert(ReadDataWord(data, 0) == 2 && ReadDataWord(data, 4) == 0x80000041,
+        "Svar leading-byte deletion did not advance the source reference");
+
+    WriteStringRecord(data, 16, 3, 2, leftText);
+    SetJinfo(data, 0x80000010, 16);
+    fixture.Functions[0x0191]();
+    Assert(ReadDataWord(data, 16) == 2 && ReadDataWord(data, 20) == 3,
+        "Jinfo leading-byte deletion did not advance the left margin");
+
+    WriteStringRecord(data, 16, 3, 2, leftText);
+    data.ResetDataIndex(16);
+    fixture.Functions[0x0192]();
+    Assert(ReadDataWord(data, 16) == 1 && ReadDataWord(data, 20) == 4,
+        "Jvar leading-character deletion split a Shift-JIS character");
+
+    WriteDataBytes(data, 64, leftText);
+    SetStringReference(data, 0x80000040, 3);
+    fixture.McodePointer.ResetMcodeIndex(0x70);
+    fixture.Functions[0x0193]();
+    Assert(ReadDataWord(data, 0) == 1 && ReadDataWord(data, 4) == 0x80000042,
+        "Svar leading-character deletion did not remove the complete Shift-JIS character");
+
+    WriteStringRecord(data, 16, 3, 2, leftText);
+    SetJinfo(data, 0x80000010, 16);
+    fixture.Functions[0x0194]();
+    Assert(ReadDataWord(data, 16) == 1 && ReadDataWord(data, 20) == 4,
+        "Jinfo leading-character deletion did not remove the complete Shift-JIS character");
+
+    byte[] rightText = [(byte)'A', 0x82, 0xA0];
+    WriteStringRecord(data, 16, 3, 2, rightText);
+    data.ResetDataIndex(16);
+    fixture.Functions[0x0195]();
+    Assert(ReadDataWord(data, 16) == 2 && ReadDataWord(data, 20) == 2,
+        "Jvar trailing-byte deletion changed the left margin");
+
+    WriteDataBytes(data, 64, rightText);
+    SetStringReference(data, 0x80000040, 3);
+    fixture.McodePointer.ResetMcodeIndex(0x70);
+    fixture.Functions[0x0196]();
+    Assert(ReadDataWord(data, 0) == 2 && ReadDataWord(data, 4) == 0x80000040,
+        "Svar trailing-byte deletion changed the source address");
+
+    WriteStringRecord(data, 16, 3, 2, rightText);
+    SetJinfo(data, 0x80000010, 16);
+    fixture.Functions[0x0197]();
+    Assert(ReadDataWord(data, 16) == 2 && ReadDataWord(data, 20) == 2,
+        "Jinfo trailing-byte deletion changed the left margin");
+
+    WriteStringRecord(data, 16, 3, 2, rightText);
+    data.ResetDataIndex(16);
+    fixture.Functions[0x0198]();
+    Assert(ReadDataWord(data, 16) == 1 && ReadDataWord(data, 20) == 2,
+        "Jvar trailing-character deletion split a Shift-JIS character");
+
+    WriteDataBytes(data, 64, rightText);
+    SetStringReference(data, 0x80000040, 3);
+    fixture.McodePointer.ResetMcodeIndex(0x70);
+    fixture.Functions[0x0199]();
+    Assert(ReadDataWord(data, 0) == 1 && ReadDataWord(data, 4) == 0x80000040,
+        "Svar trailing-character deletion changed its source address or split a character");
+
+    WriteStringRecord(data, 16, 3, 2, rightText);
+    SetJinfo(data, 0x80000010, 16);
+    fixture.Functions[0x019A]();
+    Assert(ReadDataWord(data, 16) == 1 && ReadDataWord(data, 20) == 2,
+        "Jinfo trailing-character deletion changed the left margin or split a character");
+}
+
+static void TestStringCutOpcodes()
+{
+    DispatchFixture fixture = CreateDispatcher();
+    AccessPointer data = AttachDataPointer(fixture, 128);
+    byte[] leftText = [0x82, 0xA0, (byte)'B'];
+    byte[] rightText = [(byte)'A', 0x82, 0xA0];
+
+    void AssertCutResult(uint expected, string context) =>
+        Assert(fixture.DataStack.PopUl() == 0 && fixture.DataStack.PopUl() == expected,
+            $"{context} returned the wrong character value");
+
+    void RunRecord(uint opcode, bool jinfo, byte[] content, uint margin, uint expectedValue,
+        uint expectedLength, uint expectedMargin)
+    {
+        WriteStringRecord(data, 16, (uint)content.Length, margin, content);
+        if (jinfo)
+            SetJinfo(data, 0x80000010, 32);
+        else
+            data.ResetDataIndex(16);
+        fixture.McodePointer.ResetMcodeIndex(0x70);
+        fixture.Functions[opcode]();
+        AssertCutResult(expectedValue, $"opcode 0x{opcode:X4}");
+        Assert(ReadDataWord(data, 16) == expectedLength && ReadDataWord(data, 20) == expectedMargin,
+            $"opcode 0x{opcode:X4} updated the wrong string length or left margin");
+    }
+
+    void RunSvar(uint opcode, byte[] content, uint expectedValue, uint expectedAddress, uint expectedLength)
+    {
+        WriteDataBytes(data, 64, content);
+        SetStringReference(data, 0x80000040, (uint)content.Length);
+        fixture.McodePointer.ResetMcodeIndex(0x70);
+        fixture.Functions[opcode]();
+        AssertCutResult(expectedValue, $"opcode 0x{opcode:X4}");
+        Assert(ReadDataWord(data, 0) == expectedLength && ReadDataWord(data, 4) == expectedAddress,
+            $"opcode 0x{opcode:X4} updated the wrong Svar reference");
+        Assert(fixture.McodePointer.GetMcodeIndex() == 0x70,
+            $"opcode 0x{opcode:X4} consumed unexpected M-code");
+    }
+
+    RunRecord(0x019B, false, leftText, 2, 0x82, 2, 3);
+    RunSvar(0x019C, leftText, 0x82, 0x80000041, 2);
+    RunRecord(0x019D, true, leftText, 2, 0x82, 2, 3);
+    RunRecord(0x019E, false, leftText, 2, 0x82A0, 1, 4);
+    RunSvar(0x019F, leftText, 0x82A0, 0x80000042, 1);
+    RunRecord(0x01A0, true, leftText, 2, 0x82A0, 1, 4);
+
+    RunRecord(0x01A1, false, rightText, 2, 0xA0, 2, 2);
+    RunSvar(0x01A2, rightText, 0xA0, 0x80000040, 2);
+    RunRecord(0x01A3, true, rightText, 2, 0xA0, 2, 2);
+    RunRecord(0x01A4, false, rightText, 2, 0x82A0, 1, 2);
+    RunRecord(0x01A6, true, rightText, 2, 0x82A0, 1, 2);
+
+    WriteStringRecord(data, 16, 0, 2);
+    data.ResetDataIndex(16);
+    fixture.Functions[0x019B]();
+    AssertCutResult(0, "empty-string extraction");
+    Assert(ReadDataWord(data, 16) == 0 && ReadDataWord(data, 20) == 2,
+        "empty-string extraction modified the string record");
+}
+
+static void TestStringByteRangeOpcodes()
+{
+    DispatchFixture fixture = CreateDispatcher();
+    AccessPointer data = AttachDataPointer(fixture, 128);
+    byte[] content = [(byte)'A', 0x82, 0xA0, (byte)'B'];
+
+    void AssertStringInfo(uint expectedAddress, uint expectedLength, string context) =>
+        Assert(fixture.DataStack.PopUl() == expectedLength && fixture.DataStack.PopUl() == expectedAddress,
+            $"{context} returned the wrong string address or byte length");
+
+    void RunRecord(uint opcode, bool jinfo, uint requested,
+        uint expectedAddress, uint expectedCutLength, uint expectedLength, uint expectedMargin)
+    {
+        WriteStringRecord(data, 16, (uint)content.Length, 2, content);
+        if (jinfo)
+            SetJinfo(data, 0x80000010, 32);
+        else
+            data.ResetDataIndex(16);
+        PushIntegerQuad(fixture.DataStack, requested);
+        fixture.Functions[opcode]();
+        AssertStringInfo(expectedAddress, expectedCutLength, $"opcode 0x{opcode:X4}");
+        Assert(ReadDataWord(data, 16) == expectedLength && ReadDataWord(data, 20) == expectedMargin,
+            $"opcode 0x{opcode:X4} updated the wrong string length or left margin");
+    }
+
+    void RunSvar(uint opcode, uint requested,
+        uint expectedAddress, uint expectedCutLength, uint expectedLength, uint expectedReference)
+    {
+        WriteDataBytes(data, 64, content);
+        SetStringReference(data, 0x80000040, (uint)content.Length);
+        PushIntegerQuad(fixture.DataStack, requested);
+        fixture.Functions[opcode]();
+        AssertStringInfo(expectedAddress, expectedCutLength, $"opcode 0x{opcode:X4}");
+        Assert(ReadDataWord(data, 0) == expectedLength && ReadDataWord(data, 4) == expectedReference,
+            $"opcode 0x{opcode:X4} updated the wrong Svar reference");
+    }
+
+    void RunDeleteRecord(uint opcode, bool jinfo,
+        uint expectedLength, uint expectedMargin)
+    {
+        WriteStringRecord(data, 16, (uint)content.Length, 2, content);
+        if (jinfo)
+            SetJinfo(data, 0x80000010, 32);
+        else
+            data.ResetDataIndex(16);
+        PushIntegerQuad(fixture.DataStack, 2);
+        fixture.Functions[opcode]();
+        Assert(ReadDataWord(data, 16) == expectedLength && ReadDataWord(data, 20) == expectedMargin,
+            $"opcode 0x{opcode:X4} updated the wrong string length or left margin");
+    }
+
+    void RunDeleteSvar(uint opcode, uint expectedLength, uint expectedAddress)
+    {
+        SetStringReference(data, 0x80000040, (uint)content.Length);
+        PushIntegerQuad(fixture.DataStack, 2);
+        fixture.Functions[opcode]();
+        Assert(ReadDataWord(data, 0) == expectedLength && ReadDataWord(data, 4) == expectedAddress,
+            $"opcode 0x{opcode:X4} updated the wrong Svar reference");
+    }
+
+    RunRecord(0x01A7, false, 2, 0x8000001A, 2, 2, 4);
+    RunSvar(0x01A8, 2, 0x80000040, 2, 2, 0x80000042);
+    RunRecord(0x01A9, true, 2, 0x8000001A, 2, 2, 4);
+    RunRecord(0x01AA, false, 2, 0x8000001C, 2, 2, 2);
+    RunSvar(0x01AB, 2, 0x80000042, 2, 2, 0x80000040);
+    RunRecord(0x01AC, true, 2, 0x8000001C, 2, 2, 2);
+
+    RunDeleteRecord(0x01AD, false, 2, 4);
+    RunDeleteSvar(0x01AE, 2, 0x80000042);
+    RunDeleteRecord(0x01AF, true, 2, 4);
+    RunDeleteRecord(0x01B0, false, 2, 2);
+    RunDeleteSvar(0x01B1, 2, 0x80000040);
+    RunDeleteRecord(0x01B2, true, 2, 2);
+
+    RunRecord(0x01A7, false, 99, 0x8000001A, 4, 0, 6);
+}
+
+static void TestStringCharacterRangeOpcodes()
+{
+    DispatchFixture fixture = CreateDispatcher();
+    AccessPointer data = AttachDataPointer(fixture, 128);
+    byte[] content = [(byte)'A', 0x82, 0xA0, (byte)'B'];
+
+    void AssertStringInfo(uint expectedAddress, uint expectedLength, string context) =>
+        Assert(fixture.DataStack.PopUl() == expectedLength && fixture.DataStack.PopUl() == expectedAddress,
+            $"{context} returned the wrong string address or byte length");
+
+    void RunRecord(uint opcode, bool jinfo, uint requested,
+        uint expectedAddress, uint expectedCutLength, uint expectedLength, uint expectedMargin)
+    {
+        WriteStringRecord(data, 16, (uint)content.Length, 2, content);
+        if (jinfo)
+            SetJinfo(data, 0x80000010, 32);
+        else
+            data.ResetDataIndex(16);
+        PushIntegerQuad(fixture.DataStack, requested);
+        fixture.Functions[opcode]();
+        AssertStringInfo(expectedAddress, expectedCutLength, $"opcode 0x{opcode:X4}");
+        Assert(ReadDataWord(data, 16) == expectedLength && ReadDataWord(data, 20) == expectedMargin,
+            $"opcode 0x{opcode:X4} updated the wrong string length or left margin");
+    }
+
+    void RunSvar(uint opcode, uint requested,
+        uint expectedAddress, uint expectedCutLength, uint expectedLength, uint expectedReference)
+    {
+        WriteDataBytes(data, 64, content);
+        SetStringReference(data, 0x80000040, (uint)content.Length);
+        PushIntegerQuad(fixture.DataStack, requested);
+        fixture.Functions[opcode]();
+        AssertStringInfo(expectedAddress, expectedCutLength, $"opcode 0x{opcode:X4}");
+        Assert(ReadDataWord(data, 0) == expectedLength && ReadDataWord(data, 4) == expectedReference,
+            $"opcode 0x{opcode:X4} updated the wrong Svar reference");
+    }
+
+    RunRecord(0x01B3, false, 2, 0x8000001A, 3, 1, 5);
+    RunSvar(0x01B4, 2, 0x80000040, 3, 1, 0x80000043);
+    RunRecord(0x01B5, true, 2, 0x8000001A, 3, 1, 5);
+    RunRecord(0x01B6, false, 2, 0x8000001B, 3, 1, 2);
+    RunSvar(0x01B7, 2, 0x80000041, 3, 1, 0x80000040);
+    RunRecord(0x01B8, true, 2, 0x8000001B, 3, 1, 2);
+
+    RunRecord(0x01B3, false, 0, 0x8000001A, 0, 4, 2);
+}
+
+static void TestStringSplitOpcodes()
+{
+    DispatchFixture fixture = CreateDispatcher();
+    AccessPointer data = AttachDataPointer(fixture, 128);
+    byte[] content = [(byte)'A', 0x82, 0xA0, (byte)'B'];
+
+    void AssertStringInfo(uint expectedAddress, uint expectedLength, string context) =>
+        Assert(fixture.DataStack.PopUl() == expectedLength && fixture.DataStack.PopUl() == expectedAddress,
+            $"{context} returned the wrong prefix address or byte length");
+
+    void RunRecord(uint opcode, bool jinfo, uint position,
+        uint expectedAddress, uint expectedPrefixLength, uint expectedLength, uint expectedMargin)
+    {
+        WriteStringRecord(data, 16, (uint)content.Length, 2, content);
+        if (jinfo)
+            SetJinfo(data, 0x80000010, 32);
+        else
+            data.ResetDataIndex(16);
+        PushIntegerQuad(fixture.DataStack, position);
+        fixture.Functions[opcode]();
+        AssertStringInfo(expectedAddress, expectedPrefixLength, $"opcode 0x{opcode:X4}");
+        Assert(ReadDataWord(data, 16) == expectedLength && ReadDataWord(data, 20) == expectedMargin,
+            $"opcode 0x{opcode:X4} removed the wrong prefix or delimiter");
+    }
+
+    void RunSvar(uint opcode, uint position,
+        uint expectedAddress, uint expectedPrefixLength, uint expectedLength, uint expectedReference)
+    {
+        WriteDataBytes(data, 64, content);
+        SetStringReference(data, 0x80000040, (uint)content.Length);
+        PushIntegerQuad(fixture.DataStack, position);
+        fixture.Functions[opcode]();
+        AssertStringInfo(expectedAddress, expectedPrefixLength, $"opcode 0x{opcode:X4}");
+        Assert(ReadDataWord(data, 0) == expectedLength && ReadDataWord(data, 4) == expectedReference,
+            $"opcode 0x{opcode:X4} updated the wrong Svar reference");
+    }
+
+    RunRecord(0x01B9, false, 2, 0x8000001A, 1, 1, 5);
+    RunSvar(0x01BA, 2, 0x80000040, 1, 1, 0x80000043);
+    RunRecord(0x01BB, true, 1, 0x8000001A, 0, 3, 3);
+    RunRecord(0x01BC, false, 3, 0x8000001A, 2, 1, 5);
+    RunSvar(0x01BD, 3, 0x80000040, 2, 1, 0x80000043);
+    RunRecord(0x01BE, true, 0, 0x8000001A, 0, 4, 2);
+}
+
+static void TestStringCharacterRangeDeleteOpcodes()
+{
+    DispatchFixture fixture = CreateDispatcher();
+    AccessPointer data = AttachDataPointer(fixture, 128);
+    byte[] content = [(byte)'A', 0x82, 0xA0, (byte)'B'];
+
+    void RunRecord(uint opcode, bool jinfo, uint expectedLength, uint expectedMargin, uint requested = 2)
+    {
+        WriteStringRecord(data, 16, (uint)content.Length, 2, content);
+        if (jinfo)
+            SetJinfo(data, 0x80000010, 32);
+        else
+            data.ResetDataIndex(16);
+        uint stackPointer = fixture.DataStack.GetCurrentStackPointer();
+        PushIntegerQuad(fixture.DataStack, requested);
+        fixture.Functions[opcode]();
+        Assert(fixture.DataStack.GetCurrentStackPointer() == stackPointer,
+            $"opcode 0x{opcode:X4} left unexpected data on the stack");
+        Assert(ReadDataWord(data, 16) == expectedLength && ReadDataWord(data, 20) == expectedMargin,
+            $"opcode 0x{opcode:X4} updated the wrong string length or left margin");
+    }
+
+    void RunSvar(uint opcode, uint expectedLength, uint expectedAddress)
+    {
+        WriteDataBytes(data, 64, content);
+        SetStringReference(data, 0x80000040, (uint)content.Length);
+        uint stackPointer = fixture.DataStack.GetCurrentStackPointer();
+        PushIntegerQuad(fixture.DataStack, 2);
+        fixture.Functions[opcode]();
+        Assert(fixture.DataStack.GetCurrentStackPointer() == stackPointer,
+            $"opcode 0x{opcode:X4} left unexpected data on the stack");
+        uint actualLength = ReadDataWord(data, 0);
+        uint actualAddress = ReadDataWord(data, 4);
+        Assert(actualLength == expectedLength && actualAddress == expectedAddress,
+            $"opcode 0x{opcode:X4} expected Svar ({expectedLength}, 0x{expectedAddress:X8}) but got ({actualLength}, 0x{actualAddress:X8})");
+    }
+
+    RunRecord(0x01BF, false, 1, 5);
+    RunSvar(0x01C0, 1, 0x80000043);
+    RunRecord(0x01C1, true, 1, 5);
+    RunRecord(0x01C2, false, 1, 2);
+    RunSvar(0x01C3, 1, 0x80000040);
+    RunRecord(0x01C4, true, 1, 2);
+    RunRecord(0x01BF, false, 0, 6, 99);
+}
+
+static void TestStringWhitespaceOpcodes()
+{
+    DispatchFixture fixture = CreateDispatcher();
+    AccessPointer data = AttachDataPointer(fixture, 128);
+    byte[] content = [0x20, 0x09, 0x00, 0x81, 0x40, 0x81, 0x43, 0x81, 0x41, 0x2C,
+        (byte)'X', 0x81, 0x40, 0x2C, 0x20];
+
+    void RunRecord(uint opcode, bool jinfo, uint expectedLength, uint expectedMargin)
+    {
+        WriteStringRecord(data, 16, (uint)content.Length, 2, content);
+        if (jinfo)
+            SetJinfo(data, 0x80000010, 32);
+        else
+            data.ResetDataIndex(16);
+        fixture.Functions[opcode]();
+        Assert(ReadDataWord(data, 16) == expectedLength && ReadDataWord(data, 20) == expectedMargin,
+            $"opcode 0x{opcode:X4} trimmed the wrong whitespace or changed the wrong margin");
+    }
+
+    void RunSvar(uint opcode, uint expectedLength, uint expectedAddress)
+    {
+        WriteDataBytes(data, 64, content);
+        SetStringReference(data, 0x80000040, (uint)content.Length);
+        fixture.Functions[opcode]();
+        Assert(ReadDataWord(data, 0) == expectedLength && ReadDataWord(data, 4) == expectedAddress,
+            $"opcode 0x{opcode:X4} updated the wrong Svar reference");
+    }
+
+    RunRecord(0x01C5, false, 5, 12);
+    RunSvar(0x01C6, 5, 0x8000004A);
+    RunRecord(0x01C7, true, 5, 12);
+    RunRecord(0x01C8, false, 11, 2);
+    RunSvar(0x01C9, 11, 0x80000040);
+    RunRecord(0x01CA, true, 11, 2);
+}
+
+static void TestStringWordExtractionOpcodes()
+{
+    DispatchFixture fixture = CreateDispatcher();
+    AccessPointer data = AttachDataPointer(fixture, 128);
+    byte[] content = [(byte)' ', 0x81, 0x40, (byte)'A', 0x82, 0xA0, 0x2C, (byte)'B', (byte)' '];
+
+    void AssertWord(uint expectedAddress, uint expectedLength, string context) =>
+        Assert(fixture.DataStack.PopUl() == expectedLength && fixture.DataStack.PopUl() == expectedAddress,
+            $"{context} returned the wrong word address or byte length");
+
+    void RunRecord(uint opcode, bool jinfo)
+    {
+        WriteStringRecord(data, 16, (uint)content.Length, 2, content);
+        if (jinfo)
+            SetJinfo(data, 0x80000010, 32);
+        else
+            data.ResetDataIndex(16);
+        fixture.Functions[opcode]();
+        AssertWord(0x8000001D, 3, $"opcode 0x{opcode:X4}");
+        Assert(ReadDataWord(data, 16) == 3 && ReadDataWord(data, 20) == 8,
+            $"opcode 0x{opcode:X4} did not remove the leading whitespace and one word");
+    }
+
+    void RunSvar()
+    {
+        WriteDataBytes(data, 64, content);
+        SetStringReference(data, 0x80000040, (uint)content.Length);
+        fixture.Functions[0x01CC]();
+        AssertWord(0x80000043, 3, "direct Svar word extraction");
+        Assert(ReadDataWord(data, 0) == 3 && ReadDataWord(data, 4) == 0x80000046,
+            "direct Svar word extraction updated the wrong remaining reference");
+    }
+
+    RunRecord(0x01CB, false);
+    RunSvar();
+    RunRecord(0x01CD, true);
+
+    WriteStringRecord(data, 16, 4, 2, 0x20, 0x2C, 0x81, 0x40);
+    data.ResetDataIndex(16);
+    fixture.Functions[0x01CB]();
+    AssertWord(0x8000001E, 0, "all-whitespace word extraction");
+    Assert(ReadDataWord(data, 16) == 0 && ReadDataWord(data, 20) == 6,
+        "all-whitespace word extraction did not consume the full string");
+}
+
+static void TestStringCharacterSelectionOpcodes()
+{
+    DispatchFixture fixture = CreateDispatcher();
+    AccessPointer data = AttachDataPointer(fixture, 128);
+    const uint address = 0x80000040;
+    byte[] content = [(byte)'A', 0x82, 0xA0, (byte)'B', 0x81, 0x40];
+    WriteDataBytes(data, 64, content);
+
+    void PushString(uint length)
+    {
+        fixture.DataStack.PushUl(address);
+        fixture.DataStack.PushUl(length);
+    }
+
+    void AssertQuad(uint opcode, uint expected, string context)
+    {
+        fixture.Functions[opcode]();
+        Assert(fixture.DataStack.PopUl() == 0 && fixture.DataStack.PopUl() == expected,
+            $"{context} returned the wrong value");
+    }
+
+    PushString((uint)content.Length);
+    AssertQuad(0x01CE, 4, "character count");
+    PushString((uint)content.Length);
+    AssertQuad(0x01CF, (byte)'A', "first byte");
+    PushString((uint)content.Length);
+    AssertQuad(0x01D0, (byte)'A', "first character");
+    PushString((uint)content.Length);
+    AssertQuad(0x01D1, 0x40, "last byte");
+    PushString((uint)content.Length);
+    AssertQuad(0x01D2, 0x8140, "last character");
+
+    void PushPosition(uint position)
+    {
+        PushString((uint)content.Length);
+        fixture.DataStack.PushUl(position);
+        fixture.DataStack.PushUl(0);
+    }
+
+    PushPosition(2);
+    AssertQuad(0x01D3, 0x82A0, "second character from the left");
+    PushPosition(2);
+    AssertQuad(0x01D4, (byte)'B', "second character from the right");
+    PushPosition(0);
+    AssertQuad(0x01D3, 0, "zero character position");
+    PushPosition(5);
+    AssertQuad(0x01D4, 0, "out-of-range character position");
+
+    void PushRange(uint requested)
+    {
+        PushString((uint)content.Length);
+        fixture.DataStack.PushUl(requested);
+        fixture.DataStack.PushUl(0);
+    }
+
+    PushRange(2);
+    fixture.Functions[0x01D5]();
+    Assert(fixture.DataStack.PopUl() == 3 && fixture.DataStack.PopUl() == address,
+        "left extraction returned the wrong character range");
+    PushRange(2);
+    fixture.Functions[0x01D6]();
+    Assert(fixture.DataStack.PopUl() == 3 && fixture.DataStack.PopUl() == address + 3,
+        "right extraction returned the wrong character range");
+
+    PushString(0);
+    AssertQuad(0x01CE, 0, "empty character count");
+    PushString(0);
+    AssertQuad(0x01D0, 0, "empty first character");
+    PushString(0);
+    fixture.DataStack.PushUl(2);
+    fixture.DataStack.PushUl(0);
+    fixture.Functions[0x01D6]();
+    Assert(fixture.DataStack.PopUl() == 0 && fixture.DataStack.PopUl() == address,
+        "right extraction from an empty string returned a nonempty range");
+}
+
+static void TestStringSearchAndComparisonOpcodes()
+{
+    DispatchFixture fixture = CreateDispatcher();
+    AccessPointer data = AttachDataPointer(fixture, 128);
+    const uint orgAddress = 0x80000040;
+    const uint keyAddress = 0x80000050;
+    byte[] org = [(byte)'A', (byte)'X', (byte)'A', (byte)'B', 0x82, 0xA0, (byte)'C'];
+    byte[] key = [(byte)'A', (byte)'B'];
+    WriteDataBytes(data, 64, org);
+    WriteDataBytes(data, 80, key);
+
+    void PushString(uint address, uint length)
+    {
+        fixture.DataStack.PushUl(address);
+        fixture.DataStack.PushUl(length);
+    }
+
+    void AssertQuad(uint opcode, uint expected, string context)
+    {
+        fixture.Functions[opcode]();
+        Assert(fixture.DataStack.PopUl() == 0 && fixture.DataStack.PopUl() == expected,
+            $"{context} returned the wrong comparison or position");
+    }
+
+    PushString(orgAddress, (uint)org.Length);
+    fixture.DataStack.PushUl(0x82A0);
+    fixture.DataStack.PushUl(0);
+    AssertQuad(0x01D9, 5, "Shift-JIS character search");
+    PushString(orgAddress, (uint)org.Length);
+    fixture.DataStack.PushUl((byte)'X');
+    fixture.DataStack.PushUl(0);
+    AssertQuad(0x01D9, 2, "ASCII character search");
+
+    PushString(orgAddress, (uint)org.Length);
+    PushString(keyAddress, (uint)key.Length);
+    fixture.Functions[0x01DA]();
+    Assert(fixture.DataStack.PopUl() == 0 && fixture.DataStack.PopUl() == 3,
+        "character-aware substring search returned the wrong position");
+    fixture.Functions[0x01DB]();
+    Assert(fixture.DataStack.PopUl() == 3 && fixture.DataStack.PopUl() == orgAddress + 4,
+        "remaining-string search result has the wrong address or length");
+
+    WriteDataBytes(data, 80, (byte)0xA0, (byte)'C');
+    PushString(orgAddress, (uint)org.Length);
+    PushString(keyAddress, 2);
+    fixture.Functions[0x01DC]();
+    Assert(fixture.DataStack.PopUl() == 0 && fixture.DataStack.PopUl() == 6,
+        "byte substring search did not match across a Shift-JIS boundary");
+
+    PushString(orgAddress, 1);
+    PushString(keyAddress, 2);
+    fixture.Functions[0x01DA]();
+    Assert(fixture.DataStack.PopUl() == 0 && fixture.DataStack.PopUl() == 0,
+        "failed substring search returned a nonzero position");
+    fixture.Functions[0x01DB]();
+    Assert(fixture.DataStack.PopUl() == 3 && fixture.DataStack.PopUl() == orgAddress + 4,
+        "failed search incorrectly replaced the previous remaining-string result");
+
+    WriteDataBytes(data, 64, (byte)'A');
+    WriteDataBytes(data, 80, (byte)'B');
+    PushString(orgAddress, 1);
+    PushString(keyAddress, 1);
+    AssertQuad(0x01DE, 1, "bytewise string comparison");
+    WriteDataBytes(data, 64, (byte)'Z');
+    WriteDataBytes(data, 80, 0x81, 0x40);
+    PushString(orgAddress, 1);
+    PushString(keyAddress, 2);
+    AssertQuad(0x01DF, 1, "characterwise string comparison");
+
+    byte[] filenameA = System.Text.Encoding.ASCII.GetBytes("Dir/file.TXT");
+    byte[] filenameB = System.Text.Encoding.ASCII.GetBytes("dir/FILE.txt");
+    WriteDataBytes(data, 64, filenameA);
+    WriteDataBytes(data, 80, filenameB);
+    PushString(orgAddress, (uint)filenameA.Length);
+    PushString(keyAddress, (uint)filenameB.Length);
+    AssertQuad(0x01E0, 0, "case-insensitive filename comparison");
+}
+
+static void TestCharacterClassificationOpcodes()
+{
+    DispatchFixture fixture = CreateDispatcher();
+    void AssertQuad(uint opcode, uint input, uint expected, string context)
+    {
+        fixture.DataStack.PushUl(input);
+        fixture.DataStack.PushUl(0xABCD);
+        fixture.Functions[opcode]();
+        Assert(fixture.DataStack.PopUl() == 0xABCD && fixture.DataStack.PopUl() == expected,
+            $"{context} returned the wrong value or changed the upper quad word");
+    }
+
+    AssertQuad(0x01E1, 0x82, 1, "Shift-JIS lead byte");
+    AssertQuad(0x01E1, 0x41, 0, "Shift-JIS ASCII byte");
+    AssertQuad(0x01E2, 0xA1, 1, "EUC high-bit byte");
+    AssertQuad(0x01E2, 0x41, 0, "EUC ASCII byte");
+    AssertQuad(0x01E3, 0x82, 1, "configured lead byte");
+    AssertQuad(0x01E3, 0xA1, 0, "configured non-lead byte");
+    AssertQuad(0x01E4, 0x8140, 1, "double-byte character code");
+    AssertQuad(0x01E4, 0xFF, 0, "single-byte character code");
+    AssertQuad(0x01E4, 0x10041, 0, "character code truncates to 16 bits");
+    AssertQuad(0x01E5, 0xA1, 1, "half-width kana code");
+    AssertQuad(0x01E5, 0xE0, 0, "non-kana code");
+    AssertQuad(0x01E6, 0xA1, 1, "character width of single-byte kana");
+    AssertQuad(0x01E6, 0x8140, 2, "character width of double-byte code");
+    AssertQuad(0x01E6, 0x10041, 1, "character width truncates to 16 bits");
+    AssertQuad(0x01E7, 0xA1, 1, "display width of single-byte kana");
+    AssertQuad(0x01E7, 0x8140, 2, "display width of double-byte code");
+    AssertQuad(0x01E8, 0x09, 1, "ASCII whitespace");
+    AssertQuad(0x01E8, 0x2C, 1, "ASCII comma whitespace");
+    AssertQuad(0x01E8, 0x8140, 1, "Shift-JIS whitespace");
+    AssertQuad(0x01E8, 0x8142, 0, "non-whitespace double-byte code");
+    AssertQuad(0x01E8, 0x10020, 1, "whitespace check truncates to 16 bits");
+}
+
+static void TestStringSizeOpcodes()
+{
+    DispatchFixture fixture = CreateDispatcher();
+    void RunLengthAlias(uint opcode)
+    {
+        fixture.DataStack.PushUl(0x80000040);
+        fixture.DataStack.PushUl(7);
+        uint pointer = fixture.DataStack.GetCurrentStackPointer();
+        fixture.Functions[opcode]();
+        Assert(fixture.DataStack.GetCurrentStackPointer() == pointer,
+            $"opcode 0x{opcode:X4} changed the stack depth");
+        Assert(fixture.DataStack.PopUl() == 0 && fixture.DataStack.PopUl() == 7,
+            $"opcode 0x{opcode:X4} did not replace string info with its byte count");
+    }
+
+    RunLengthAlias(0x01EA);
+    RunLengthAlias(0x01EB);
+
+    fixture.DataStack.PushUl(0x80000040);
+    fixture.DataStack.PushUl(7);
+    fixture.DataStack.PushUl(10);
+    fixture.DataStack.PushUl(0);
+    fixture.Functions[0x01ED]();
+    Assert(fixture.DataStack.PopUl() == 0 && fixture.DataStack.PopUl() == 0x80000040,
+        "size reduction above the string length produced an invalid string reference");
+
+    fixture.DataStack.PushUl(0x80000040);
+    fixture.DataStack.PushUl(7);
+    fixture.DataStack.PushUl(3);
+    fixture.DataStack.PushUl(0);
+    fixture.Functions[0x01ED]();
+    Assert(fixture.DataStack.PopUl() == 4 && fixture.DataStack.PopUl() == 0x80000040,
+        "size reduction did not subtract the requested byte count");
+}
+
+static void TestSingleCharacterConversionOpcodes()
+{
+    DispatchFixture fixture = CreateDispatcher();
+    void PushCode(uint code)
+    {
+        fixture.DataStack.PushUl(code);
+        fixture.DataStack.PushUl(0xABCD);
+    }
+
+    void AssertChanged(uint opcode, uint input, uint expected, string context)
+    {
+        PushCode(input);
+        fixture.Functions[opcode]();
+        Assert(fixture.DataStack.PopUl() == 0xABCD && fixture.DataStack.PopUl() == expected,
+            $"{context} changed the wrong code or upper quad word");
+    }
+
+    AssertChanged(0x01EE, 0x8140, 0x2121, "Shift-JIS to JIS conversion");
+    AssertChanged(0x01EF, 0x2121, 0x8140, "JIS to Shift-JIS conversion");
+    AssertChanged(0x01F0, (byte)'z', (byte)'Z', "ASCII uppercase conversion");
+    AssertChanged(0x01F0, 0x8281, 0x8260, "Shift-JIS uppercase conversion");
+    AssertChanged(0x01F3, (byte)'A', 0x8260, "ASCII full-width conversion");
+    AssertChanged(0x01F3, (byte)' ', 0x8140, "ASCII space full-width conversion");
+    AssertChanged(0x01F3, 0xA6, 0x8392, "half-width kana conversion");
+    AssertChanged(0x01F3, 0xDF, 0x814B, "half-width punctuation conversion");
+    AssertChanged(0x01F3, 0xE0, 0xE0, "non-mapped byte conversion");
+    AssertChanged(0x01F3, 0x8140, 0x8140, "existing full-width character conversion");
+
+    void AssertNumeric(uint opcode, uint input, uint expected, uint success, string context)
+    {
+        PushCode(input);
+        fixture.Functions[opcode]();
+        Assert(fixture.DataStack.PopUl() == 0 && fixture.DataStack.PopUl() == success,
+            $"{context} returned the wrong success flag");
+        Assert(fixture.DataStack.PopUl() == 0xABCD && fixture.DataStack.PopUl() == expected,
+            $"{context} returned the wrong value or changed the upper quad word");
+    }
+
+    AssertNumeric(0x01F1, (byte)'7', 7, 1, "decimal digit conversion");
+    AssertNumeric(0x01F1, 0x8256, 7, 1, "full-width decimal digit conversion");
+    AssertNumeric(0x01F1, (byte)'A', 0, 0, "invalid decimal conversion");
+    AssertNumeric(0x01F2, (byte)'F', 15, 1, "hexadecimal conversion");
+    AssertNumeric(0x01F2, 0x8286, 15, 1, "full-width hexadecimal conversion");
+    AssertNumeric(0x01F2, (byte)'G', 0, 0, "invalid hexadecimal conversion");
+
+    AssertChanged(0x01F4, (byte)'(', 1, "ASCII separator");
+    AssertChanged(0x01F4, 0x8169, 1, "Shift-JIS separator");
+    AssertChanged(0x01F4, 0x8142, 1, "Shift-JIS comma separator");
+    AssertChanged(0x01F4, (byte)'X', 0, "ordinary character separator check");
+}
+
+static void TestSvarStateAndDeletionOpcodes()
+{
+    DispatchFixture fixture = CreateDispatcher();
+    AccessPointer data = AttachDataPointer(fixture, 128);
+
+    void PushSvar(uint address, uint length)
+    {
+        fixture.DataStack.PushUl(address);
+        fixture.DataStack.PushUl(length);
+    }
+
+    void AssertEmptyCheck(uint opcode, uint length, uint expected, string context)
+    {
+        PushSvar(0x80000040, length);
+        fixture.Functions[opcode]();
+        Assert(fixture.DataStack.PopUl() == 0 && fixture.DataStack.PopUl() == expected,
+            $"{context} returned the wrong boolean quad");
+        Assert(fixture.DataStack.PopUl() == length && fixture.DataStack.PopUl() == 0x80000040,
+            $"{context} changed its input string info");
+    }
+
+    AssertEmptyCheck(0x01F5, 0, 1, "empty Svar check");
+    AssertEmptyCheck(0x01F5, 2, 0, "non-empty Svar empty check");
+    AssertEmptyCheck(0x01F6, 0, 0, "empty Svar non-empty check");
+    AssertEmptyCheck(0x01F6, 2, 1, "non-empty Svar check");
+
+    void AssertDeletion(uint opcode, byte[] content, uint expectedAddress, uint expectedLength, string context)
+    {
+        WriteDataBytes(data, 64, content);
+        fixture.DataStack.PushUl(0xCAFEBABE);
+        PushSvar(0x80000040, (uint)content.Length);
+        fixture.Functions[opcode]();
+        Assert(fixture.DataStack.PopUl() == expectedLength && fixture.DataStack.PopUl() == expectedAddress,
+            $"{context} changed the wrong string-info words");
+        Assert(fixture.DataStack.PopUl() == 0xCAFEBABE,
+            $"{context} changed the adjacent stack value");
+    }
+
+    byte[] content = [(byte)'A', 0x82, 0xA0, (byte)'B'];
+    AssertDeletion(0x01F7, content, 0x80000041, 3, "left byte deletion");
+    AssertDeletion(0x01F8, content, 0x80000040, 3, "right byte deletion");
+    AssertDeletion(0x01F9, [0x82, 0xA0, (byte)'A', (byte)'B'], 0x80000042, 2,
+        "left multibyte character deletion");
+    AssertDeletion(0x01FA, content, 0x80000040, 3, "right character deletion");
+    AssertDeletion(0x01F9, [], 0x80000040, 0, "empty character deletion");
+    AssertDeletion(0x01FA, [(byte)'A', 0x82, 0xA0], 0x80000040, 1,
+        "right multibyte character deletion");
+}
+
+static void TestSvarExtractionOpcodes()
+{
+    DispatchFixture fixture = CreateDispatcher();
+    AccessPointer data = AttachDataPointer(fixture, 128);
+
+    void AssertCut(uint opcode, byte[] content, uint expectedValue, uint expectedAddress,
+        uint expectedLength, string context)
+    {
+        WriteDataBytes(data, 64, content);
+        fixture.DataStack.PushUl(0xCAFEBABE);
+        fixture.DataStack.PushUl(0x80000040);
+        fixture.DataStack.PushUl((uint)content.Length);
+        fixture.Functions[opcode]();
+        Assert(fixture.DataStack.PopUl() == 0 && fixture.DataStack.PopUl() == expectedValue,
+            $"{context} returned the wrong character quad");
+        Assert(fixture.DataStack.PopUl() == expectedLength && fixture.DataStack.PopUl() == expectedAddress,
+            $"{context} updated the wrong remaining string info");
+        Assert(fixture.DataStack.PopUl() == 0xCAFEBABE,
+            $"{context} changed the adjacent stack value");
+    }
+
+    AssertCut(0x01FB, [0x82, 0xA0, (byte)'B'], 0x82, 0x80000041, 2,
+        "first byte extraction");
+    AssertCut(0x01FC, [0x82, 0xA0, (byte)'B'], (byte)'B', 0x80000040, 2,
+        "last byte extraction");
+    AssertCut(0x01FD, [0x82, 0xA0, (byte)'B'], 0x82A0, 0x80000042, 1,
+        "first multibyte character extraction");
+    AssertCut(0x01FE, [(byte)'A', 0x82, 0xA0], 0x82A0, 0x80000040, 1,
+        "last multibyte character extraction");
+    AssertCut(0x01FB, [], 0, 0x80000040, 0, "empty first byte extraction");
+    AssertCut(0x01FE, [], 0, 0x80000040, 0, "empty last character extraction");
+}
+
+static void TestSvarByteRangeOpcodes()
+{
+    DispatchFixture fixture = CreateDispatcher();
+    AccessPointer data = AttachDataPointer(fixture, 128);
+    byte[] content = [(byte)'A', 0x82, 0xA0, (byte)'B'];
+
+    void AssertCut(uint opcode, uint requested, uint expectedResultAddress, uint expectedResultLength,
+        uint expectedAddress, uint expectedLength, string context)
+    {
+        WriteDataBytes(data, 64, content);
+        fixture.DataStack.PushUl(0xCAFEBABE);
+        fixture.DataStack.PushUl(0x80000040);
+        fixture.DataStack.PushUl((uint)content.Length);
+        fixture.DataStack.PushUl(requested);
+        fixture.DataStack.PushUl(0);
+        fixture.Functions[opcode]();
+        Assert(fixture.DataStack.PopUl() == expectedResultLength
+            && fixture.DataStack.PopUl() == expectedResultAddress,
+            $"{context} returned the wrong extracted byte range");
+        Assert(fixture.DataStack.PopUl() == expectedLength
+            && fixture.DataStack.PopUl() == expectedAddress,
+            $"{context} updated the wrong remaining string info");
+        Assert(fixture.DataStack.PopUl() == 0xCAFEBABE,
+            $"{context} changed the adjacent stack value");
+    }
+
+    void AssertDelete(uint opcode, uint requested, uint expectedAddress, uint expectedLength, string context)
+    {
+        WriteDataBytes(data, 64, content);
+        fixture.DataStack.PushUl(0xCAFEBABE);
+        fixture.DataStack.PushUl(0x80000040);
+        fixture.DataStack.PushUl((uint)content.Length);
+        fixture.DataStack.PushUl(requested);
+        fixture.DataStack.PushUl(0);
+        fixture.Functions[opcode]();
+        Assert(fixture.DataStack.PopUl() == expectedLength && fixture.DataStack.PopUl() == expectedAddress,
+            $"{context} updated the wrong string info");
+        Assert(fixture.DataStack.PopUl() == 0xCAFEBABE,
+            $"{context} changed the adjacent stack value");
+    }
+
+    AssertCut(0x01FF, 2, 0x80000040, 2, 0x80000042, 2, "left byte-range extraction");
+    AssertCut(0x0200, 2, 0x80000042, 2, 0x80000040, 2, "right byte-range extraction");
+    AssertCut(0x01FF, 99, 0x80000040, 4, 0x80000044, 0, "clamped left byte-range extraction");
+    AssertCut(0x0200, 99, 0x80000040, 4, 0x80000040, 0, "clamped right byte-range extraction");
+    AssertDelete(0x0201, 2, 0x80000042, 2, "left byte-range deletion");
+    AssertDelete(0x0202, 2, 0x80000040, 2, "right byte-range deletion");
+    AssertDelete(0x0201, 99, 0x80000044, 0, "clamped left byte-range deletion");
+    AssertDelete(0x0202, 99, 0x80000040, 0, "clamped right byte-range deletion");
+}
+
+static void SetStringReference(AccessPointer data, uint address, uint length)
+{
+    data.ResetDataIndex(0);
+    data.SetUl4Ms(length, address);
+}
+
 static void TestCountedLoops()
 {
     foreach (uint count in new uint[] { 0, 1, 3 })
@@ -1424,6 +2666,284 @@ static void TestFloatingConstantsAndStackInfo()
         "integer clear did not preserve the fraction part");
 }
 
+static void TestFloatingMathOpcodes()
+{
+    var binaryOperations = new (ushort Opcode, double Left, double Right, double Expected)[]
+    {
+        (0x0144, 1.25, 2.5, 3.75),
+        (0x0145, 1.25, 2.5, -1.25),
+        (0x0146, 1.25, 2.5, 3.125),
+        (0x0147, 1.25, 2.5, 0.5),
+        (0x015A, 2, 3, 8)
+    };
+
+    foreach ((ushort opcode, double left, double right, double expected) in binaryOperations)
+    {
+        DispatchFixture fixture = CreateDispatcher();
+        PushFloat(fixture.DataStack, left);
+        PushFloat(fixture.DataStack, right);
+        fixture.Functions[opcode]();
+        Assert(Math.Abs(PopFloat(fixture.DataStack) - expected) < 1e-14,
+            $"opcode 0x{opcode:X4} returned an incorrect result");
+        Assert(fixture.DataStack.IsCurrentStackPointerInit(),
+            $"opcode 0x{opcode:X4} did not consume both operands");
+    }
+
+    var comparisons = new (ushort Opcode, double Left, double Right, bool Expected)[]
+    {
+        (0x0148, 2.5, 2.5, true),
+        (0x0149, 2.5, 1.25, true),
+        (0x014A, 1.25, 2.5, true),
+        (0x014B, 2.5, 2.5, true),
+        (0x014C, 1.25, 2.5, true),
+        (0x014D, 1.25, 2.5, true)
+    };
+
+    foreach ((ushort opcode, double left, double right, bool expected) in comparisons)
+    {
+        DispatchFixture fixture = CreateDispatcher();
+        PushFloat(fixture.DataStack, left);
+        PushFloat(fixture.DataStack, right);
+        fixture.Functions[opcode]();
+        Assert(fixture.DataStack.PopUl() == 0
+            && fixture.DataStack.PopUl() == (expected ? 1u : 0u),
+            $"opcode 0x{opcode:X4} returned an incorrectly laid out comparison result");
+        Assert(fixture.DataStack.IsCurrentStackPointerInit(),
+            $"opcode 0x{opcode:X4} did not consume both operands");
+    }
+
+    var unaryOperations = new (ushort Opcode, double Input, double Expected)[]
+    {
+        (0x014E, 0.5, Math.Acos(0.5)),
+        (0x014F, 0.5, Math.Asin(0.5)),
+        (0x0150, 0.5, Math.Atan(0.5)),
+        (0x0151, 0.5, Math.Cos(0.5)),
+        (0x0152, 0.5, Math.Sin(0.5)),
+        (0x0153, 0.5, Math.Tan(0.5)),
+        (0x0154, 0.5, Math.Cosh(0.5)),
+        (0x0155, 0.5, Math.Sinh(0.5)),
+        (0x0156, 0.5, Math.Tanh(0.5)),
+        (0x0157, 0.5, Math.Exp(0.5)),
+        (0x0158, 2, Math.Log(2)),
+        (0x0159, 2, Math.Log10(2)),
+        (0x015B, 4, 2),
+        (0x015C, -0.5, 0.5),
+        (0x015D, 180, Math.PI),
+        (0x015E, Math.PI, 180)
+    };
+
+    foreach ((ushort opcode, double input, double expected) in unaryOperations)
+    {
+        DispatchFixture fixture = CreateDispatcher();
+        PushFloat(fixture.DataStack, input);
+        fixture.Functions[opcode]();
+        Assert(Math.Abs(PopFloat(fixture.DataStack) - expected) < 1e-14,
+            $"opcode 0x{opcode:X4} returned an incorrect result");
+        Assert(fixture.DataStack.IsCurrentStackPointerInit(),
+            $"opcode 0x{opcode:X4} did not consume one operand");
+    }
+}
+
+static void TestIntegerUtilityOpcodes()
+{
+    foreach ((ushort opcode, int left, int right, uint expected) in new (ushort, int, int, uint)[]
+        { (0x010B, 7, 3, 21), (0x010F, 17, 5, 2), (0x0116, -4, 6, unchecked((uint)-4)),
+          (0x0117, -4, 6, 6) })
+    {
+        DispatchFixture fixture = CreateDispatcher();
+        PushIntegerQuad(fixture.DataStack, unchecked((uint)left));
+        PushIntegerQuad(fixture.DataStack, unchecked((uint)right));
+        fixture.Functions[opcode]();
+        Assert(fixture.DataStack.PopUl() == 0 && fixture.DataStack.PopUl() == expected,
+            $"opcode 0x{opcode:X4} returned an incorrect result");
+    }
+
+    foreach ((ushort opcode, int left, int right, bool expected) in new (ushort, int, int, bool)[]
+        { (0x0113, -2, 1, true), (0x0115, 2, 1, true) })
+    {
+        DispatchFixture fixture = CreateDispatcher();
+        PushIntegerQuad(fixture.DataStack, unchecked((uint)left));
+        PushIntegerQuad(fixture.DataStack, unchecked((uint)right));
+        fixture.Functions[opcode]();
+        Assert(fixture.DataStack.PopUl() == 0
+            && fixture.DataStack.PopUl() == (expected ? 1u : 0u),
+            $"opcode 0x{opcode:X4} returned an incorrectly laid out comparison result");
+    }
+
+    DispatchFixture quotientAndRemainder = CreateDispatcher();
+    PushIntegerQuad(quotientAndRemainder.DataStack, 17);
+    PushIntegerQuad(quotientAndRemainder.DataStack, 5);
+    quotientAndRemainder.Functions[0x010E]();
+    Assert(quotientAndRemainder.DataStack.PopUl() == 0
+        && quotientAndRemainder.DataStack.PopUl() == 2
+        && quotientAndRemainder.DataStack.PopUl() == 0
+        && quotientAndRemainder.DataStack.PopUl() == 3,
+        "syouToAmari returned quotient and remainder in the wrong order");
+
+    foreach ((ushort opcode, int value, bool expected) in new (ushort, int, bool)[]
+        { (0x011F, -1, false), (0x011F, 0, true), (0x0120, 0, false), (0x0120, 1, true) })
+    {
+        DispatchFixture fixture = CreateDispatcher();
+        PushIntegerQuad(fixture.DataStack, unchecked((uint)value));
+        fixture.Functions[opcode]();
+        Assert(fixture.DataStack.GetUlOffset(1) == (expected ? 1u : 0u)
+            && fixture.DataStack.GetUlOffset(0) == 0,
+            $"opcode 0x{opcode:X4} did not update only the integer word");
+    }
+
+    DispatchFixture range = CreateDispatcher();
+    PushIntegerQuad(range.DataStack, 5);
+    PushIntegerQuad(range.DataStack, 3);
+    PushIntegerQuad(range.DataStack, 6);
+    range.Functions[0x0118]();
+    Assert(range.DataStack.PopUl() == 0 && range.DataStack.PopUl() == 1,
+        "isHanni did not include both bounds");
+
+    DispatchFixture either = CreateDispatcher();
+    PushIntegerQuad(either.DataStack, 5);
+    PushIntegerQuad(either.DataStack, 4);
+    PushIntegerQuad(either.DataStack, 5);
+    either.Functions[0x0119]();
+    Assert(either.DataStack.PopUl() == 0 && either.DataStack.PopUl() == 1,
+        "dotirakaniHitosii did not match the second value");
+
+    DispatchFixture absolute = CreateDispatcher();
+    PushIntegerQuad(absolute.DataStack, unchecked((uint)-7));
+    absolute.Functions[0x011B]();
+    Assert(absolute.DataStack.PopUl() == 0 && absolute.DataStack.PopUl() == 7,
+        "zettaiti did not return the absolute value");
+
+    DispatchFixture pair = CreateDispatcher();
+    pair.DataStack.PushUl(0x11111111);
+    pair.DataStack.PushUl(0xAAAA);
+    pair.DataStack.PushUl(0x22222222);
+    pair.DataStack.PushUl(0xBBBB);
+    pair.Functions[0x011D]();
+    Assert(pair.DataStack.PopUl() == 0xBBBB && pair.DataStack.PopUl() == 0x22222222
+        && pair.DataStack.PopUl() == 0xAAAA && pair.DataStack.PopUl() == 0x11111111
+        && pair.DataStack.PopUl() == 0xBBBB && pair.DataStack.PopUl() == 0x22222222
+        && pair.DataStack.PopUl() == 0xAAAA && pair.DataStack.PopUl() == 0x11111111,
+        "pairDeFukusya did not append the same two values");
+
+    foreach ((ushort opcode, uint input, uint expected) in new (ushort, uint, uint)[]
+        {
+            (0x0125, 0x123456AB, 0x123456BA),
+            (0x0126, 0x1234ABCD, 0x1234CDAB),
+            (0x0127, 0x1234ABCD, 0x1234CDAB),
+            (0x0128, 0x1234ABCD, 0xABCD1234),
+            (0x0129, 0x12345678, 0x78563412),
+            (0x012C, 0x1234ABCD, 0xC),
+            (0x012D, 0x1234ABCD, 0xD),
+            (0x012E, 0x1234ABCD, 0xAB),
+            (0x012F, 0x1234ABCD, 0xCD),
+            (0x0130, 0x1234ABCD, 0x1234),
+            (0x0131, 0x1234ABCD, 0xABCD),
+            (0x0132, 0x10000003, 0x30),
+            (0x0133, 0x80000000, 0x08000000),
+            (0x0134, 0xF0F0, 0xA0A0),
+            (0x0135, 0xF000, 0xF5A5),
+            (0x0136, 0xF0F0, 0x5A5A),
+            (0x0137, 0x12345678, 0xEDCBA987)
+        })
+    {
+        DispatchFixture fixture = CreateDispatcher();
+        PushIntegerQuad(fixture.DataStack, input);
+        if (opcode is 0x0132 or 0x0133)
+            PushIntegerQuad(fixture.DataStack, 4);
+        else if (opcode is 0x0134 or 0x0135 or 0x0136)
+            PushIntegerQuad(fixture.DataStack, opcode == 0x0134 ? 0xA0A0u : opcode == 0x0135 ? 0x05A5u : 0xAAAAu);
+        fixture.Functions[opcode]();
+        Assert(fixture.DataStack.PopUl() == 0 && fixture.DataStack.PopUl() == expected,
+            $"opcode 0x{opcode:X4} returned an incorrect result");
+    }
+
+    foreach ((ushort opcode, uint value, uint immediate, uint expected, bool wide) in new (ushort, uint, uint, uint, bool)[]
+        {
+            (0x0139, 0xF0F0F0F0, 0x0FF00FF0, 0x00F000F0, true),
+            (0x013A, 0x12340000, 0xABCD, 0x1234ABCD, false),
+            (0x013B, 0x12340000, 0xABCD, 0x1234ABCD, true)
+        })
+    {
+        DispatchFixture fixture = CreateDispatcher();
+        if (wide)
+            WriteMcodeUInts(fixture, 0x70, immediate);
+        else
+            WriteMcodeUShorts(fixture, 0x70, checked((ushort)immediate));
+        PushIntegerQuad(fixture.DataStack, value);
+        fixture.Functions[opcode]();
+        Assert(fixture.McodePointer.GetMcodeIndex() == (wide ? 0x74u : 0x72u)
+            && fixture.DataStack.PopUl() == 0
+            && fixture.DataStack.PopUl() == expected,
+            $"opcode 0x{opcode:X4} read an incorrect immediate or result");
+    }
+
+    DispatchFixture packed = CreateDispatcher();
+    PushIntegerQuad(packed.DataStack, 0x1234);
+    PushIntegerQuad(packed.DataStack, 0xABCD);
+    packed.Functions[0x013C]();
+    Assert(packed.DataStack.PopUl() == 0 && packed.DataStack.PopUl() == 0x1234ABCD,
+        "pack did not combine the high and low words");
+
+    DispatchFixture unpacked = CreateDispatcher();
+    PushIntegerQuad(unpacked.DataStack, 0x1234ABCD);
+    unpacked.Functions[0x013D]();
+    Assert(unpacked.DataStack.PopUl() == 0 && unpacked.DataStack.PopUl() == 0xABCD
+        && unpacked.DataStack.PopUl() == 0 && unpacked.DataStack.PopUl() == 0x1234,
+        "unpack did not return the high and low words");
+
+    DispatchFixture memory = CreateDispatcher();
+    AccessPointer data = AttachDataPointer(memory, 32);
+    for (uint index = 0; index < 3; index++)
+    {
+        data.ResetDataIndex(index);
+        data.SetUb((byte)(index + 1));
+    }
+    PushIntegerQuad(memory.DataStack, 0x5A);
+    PushIntegerQuad(memory.DataStack, 0x80000008);
+    PushIntegerQuad(memory.DataStack, 4);
+    memory.Functions[0x013E]();
+    Assert(data.GetBytes(8, 4).SequenceEqual(new byte[] { 0x5A, 0x5A, 0x5A, 0x5A }),
+        "mitasu did not fill the requested memory range");
+
+    foreach (ushort opcode in new ushort[] { 0x013F, 0x0140 })
+    {
+        PushIntegerQuad(memory.DataStack, 0x80000000);
+        PushIntegerQuad(memory.DataStack, 0x80000010);
+        PushIntegerQuad(memory.DataStack, 3);
+        memory.Functions[opcode]();
+        Assert(data.GetBytes(16, 3).SequenceEqual(new byte[] { 1, 2, 3 }),
+            $"tenso alias 0x{opcode:X4} did not copy the requested bytes");
+    }
+
+    foreach ((ushort opcode, uint expected) in new (ushort, uint)[]
+        { (0x012A, BitConverter.IsLittleEndian ? 0u : 1u),
+          (0x012B, BitConverter.IsLittleEndian ? 1u : 0u) })
+    {
+        DispatchFixture fixture = CreateDispatcher();
+        fixture.Functions[opcode]();
+        Assert(fixture.DataStack.PopUl() == 0 && fixture.DataStack.PopUl() == expected,
+            $"opcode 0x{opcode:X4} reported the wrong host byte order");
+    }
+
+    DispatchFixture fraction = CreateDispatcher();
+    PushIntegerQuad(fraction.DataStack, 5);
+    PushIntegerQuad(fraction.DataStack, 2);
+    fraction.Functions[0x0141]();
+    Assert(Math.Abs(PopFloat(fraction.DataStack) - 2.5) < 1e-14,
+        "syousuumadewaru did not convert integer division to double");
+
+    DispatchFixture toFloat = CreateDispatcher();
+    PushIntegerQuad(toFloat.DataStack, unchecked((uint)-6));
+    toFloat.Functions[0x0142]();
+    Assert(PopFloat(toFloat.DataStack) == -6, "syousuka lost the integer sign");
+
+    DispatchFixture toInteger = CreateDispatcher();
+    PushFloat(toInteger.DataStack, 7.9);
+    toInteger.Functions[0x0143]();
+    Assert(toInteger.DataStack.PopUl() == 0 && toInteger.DataStack.PopUl() == 7,
+        "seisuka did not truncate the double to an integer");
+}
+
 static void PushFloat(StackPointer stack, double value)
 {
     ulong bits = unchecked((ulong)BitConverter.DoubleToInt64Bits(value));
@@ -1803,9 +3323,7 @@ static void TestFixtureOutput(string name, bool nativeNewlines = false)
     outputTask.GetAwaiter().GetResult();
     string error = errorTask.GetAwaiter().GetResult();
     Assert(process.ExitCode == 0, $"{name} exit={process.ExitCode}: {error}");
-    Assert(error.Split('\n', StringSplitOptions.RemoveEmptyEntries).All(line =>
-        System.Text.RegularExpressions.Regex.IsMatch(line, @"^\s*\d+\s+[0-9A-F]{4}\s")),
-        $"{name} produced unexpected stderr: {error}");
+    Assert(error == "", $"{name} produced stderr without -D: {error}");
     byte[] expected = File.ReadAllBytes(referencePath);
     if (nativeNewlines)
     {

@@ -120,7 +120,7 @@ namespace Mind8Kernel
         private void SotogawaKaisu() => PushReturnCount(2, 0);
         private void SotogawaKaisuM1() => PushReturnCount(2, -1);
         private void SotogawaKaisuP1() => PushReturnCount(2, 1);
-        private void SotogawaZenKausu() => PushReturnCount(3, 0);
+        private void SotogawaZenKaisu() => PushReturnCount(3, 0);
 
         private void PushReturnCount(int depth, int adjustment)
         {

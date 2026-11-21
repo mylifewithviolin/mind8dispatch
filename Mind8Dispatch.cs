@@ -9,9 +9,11 @@ namespace Mind8Kernel
         /// <param name="args">引数</param>
         static int Main(string[] args)
         {
-            string mcodefilename=args.Length > 0 ? args[0] : "hellolevel7.mco";
-            Dispatcher dispatcher =new();
-            return dispatcher.Main(mcodefilename, args.Length > 0 ? args[1..] : []);
+            bool traceEnabled = args.Contains("-D");
+            string[] programArgs = args.Where(argument => argument != "-D").ToArray();
+            string mcodefilename=programArgs.Length > 0 ? programArgs[0] : "hellolevel7.mco";
+            Dispatcher dispatcher =new() { TraceEnabled = traceEnabled };
+            return dispatcher.Main(mcodefilename, programArgs.Length > 0 ? programArgs[1..] : []);
     
         }       
     }
